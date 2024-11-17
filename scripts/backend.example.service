@@ -1,0 +1,17 @@
+[Unit]
+Description=Project Description
+#After=networking.service
+[Service]
+Type=simple
+User=change_this
+Group=sudo
+TimeoutStartSec=0
+#Restart=on-failure
+RestartSec=30s
+#ExecStartPre=
+WorkingDirectory=/path/to/project
+ExecStart=/path/to/project/scripts/start-locally.sh
+SyslogIdentifier=ProjectName
+#ExecStop=
+[Install]
+WantedBy=multi-user.target

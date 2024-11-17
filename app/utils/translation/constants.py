@@ -1,0 +1,3 @@
+LANGUAGE_HEADER = "Accept-Language"
+LANGUAGE_COOKIE = "Language"
+DEFAULT_LOCALE = "en"
