@@ -1,5 +1,5 @@
 from typing import Optional
-from pydantic import Field, condecimal, field_validator
+from pydantic import Field, condecimal, field_validator, AwareDatetime
 from uuid import UUID
 from decimal import Decimal
 from datetime import datetime
@@ -20,11 +20,11 @@ class OrderBase(BaseModel):
     note: Optional[str] = Field(None, max_length=500)
     weight: Optional[str] = Field(None, max_length=255)
     price: Optional[condecimal(decimal_places=2, max_digits=12)] = None
-    shipping_amount: Optional[condecimal(decimal_places=2, max_digits=12)] = None
+    shipping_amount: Optional[condecimal(decimal_places=2, max_digits=12)] = Field(None, alias="shippingAmount")
     shipping_type: Optional[ShippingTypeChoices] = Field(None, alias="shippingType")
-
+    completed_at: Optional[AwareDatetime] = Field(None, alias="completedAt")
     _normalize_empty = field_validator(
-        'price', "weight", "shipping_amount", mode="before",
+        'price', "weight", "shipping_amount", "completed_at", mode="before",
     )(string_to_null_field)
     _normalize_nullable = field_validator(
         "status",
@@ -80,3 +80,9 @@ class OrderVisible(VisibleBase):
     note: Optional[str] = None
 
     user: Optional[OrderUser] = None
+
+    @field_validator("code")
+    def normalize_code(cls, v: Optional[str]):
+        if v is not None:
+            return v[:6]
+        return v

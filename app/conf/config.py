@@ -9,7 +9,6 @@ class Settings(BaseSettings):
     BASE_DIR: Optional[str] = Path(__file__).resolve().parent.parent.parent.as_posix()
     PROJECT_DIR: Optional[str] = Path(__file__).resolve().parent.parent.as_posix()
     # Project
-    VERSION: Optional[str] = '0.1.0'
     DEBUG: Optional[bool] = False
     PAGINATION_MAX_SIZE: Optional[int] = 25
 

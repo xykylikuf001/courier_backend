@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware import Middleware
 from pydantic import BaseModel
 
+from app import __VERSION__
 from app.conf.config import settings
 from app.core.exceptions import DocumentRawNotFound
 from app.core.handlers import request_document_raw_not_found_exception, request_http_exception_error
@@ -47,7 +48,7 @@ def get_application(
         default_response_class=ORJSONResponse,
         title=settings.PROJECT_NAME,
         debug=settings.DEBUG,
-        version=settings.VERSION,
+        version=__VERSION__,
         openapi_url=openapi_url,
         root_path=root_path,
         root_path_in_servers=root_path_in_servers,
