@@ -14,8 +14,8 @@ async def favicon() -> str:
     return 'static/images/logo/favicon.ico'
 
 
-@router.get('/android-release/{version}/', response_class=FileResponse, name='release', tags=['release'])
+@router.get('/android-release/{apk_version}/', response_class=FileResponse, name='release', tags=['release'])
 async def android_release(
-        version: str = Query(..., max_length=50)
+        apk_version: str
 ) -> str:
-    return 'release/android/latest/release-apk.zip'
+    return f'release/android/{apk_version}/release-apk.zip'
