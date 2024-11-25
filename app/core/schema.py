@@ -1,10 +1,10 @@
 from typing import Generic, Optional, TypeVar, List
 from pydantic import (
-    BaseModel as PydanticBaseModel, ConfigDict, Field,
+    BaseModel as PydanticBaseModel, ConfigDict, Field,field_validator
 )
+from babel.support  import LazyProxy
 
 from app.conf.config import settings
-
 DataType = TypeVar("DataType")
 
 
@@ -69,6 +69,11 @@ class ChoiceBase(PydanticBaseModel, Generic[DataType]):
     value: DataType
     label: str
 
+    @field_validator("label", mode="before")
+    def normalize_label(cls, v):
+        if isinstance(v, LazyProxy):
+            return str(v)
+        return v
 
 class PhoneNumberExtendedModel(PydanticBaseModel):
     phone: str

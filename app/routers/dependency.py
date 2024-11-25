@@ -93,6 +93,8 @@ async def get_current_user(
             "is_staff": user.is_staff,
             "email_verified_at": user.email_verified_at.isoformat() if user.email_verified_at else None,
             "email": user.email,
+            "phone_verified_at": user.phone_verified_at.isoformat() if user.phone_verified_at else None,
+            "phone": user.phone,
         }
         data_dumps = json.dumps(data)
         await aioredis_instance.set(name=f"session-{user_id}:{token_payload.jti.hex}", value=data_dumps, ex=3600)
@@ -108,7 +110,9 @@ async def get_current_user(
         birthday=data.get('birthday'),
         created_at=data.get('created_at'),
         email=data.get("email"),
-        email_verified_at=data.get("email_verified_at")
+        email_verified_at=data.get("email_verified_at"),
+        phone=data.get("phone"),
+        phone_verified_at=data.get("phone_verified_at")
     )
     return user_session
 

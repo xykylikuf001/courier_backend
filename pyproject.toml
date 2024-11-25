@@ -44,6 +44,7 @@ python-magic-bin = { version = "*", markers = "sys_platform == 'win32'" }
 celery = "^5.4.0"
 flower = "^2.0.1"
 fastapi-sso = "^0.17.0"
+phonenumbers = "^8.13.50"
 
 [build-system]
 requires = ["poetry-core"]

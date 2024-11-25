@@ -1,19 +1,18 @@
-"""2_user
+"""5_user
 
-Revision ID: 10cac43cb440
-Revises: 
-Create Date: 2024-11-11 18:20:12.159393
+Revision ID: b91096c2229f
+Revises: 514372b0c547
+Create Date: 2024-11-20 06:47:04.492318
 
 """
 from alembic import op
 import sqlalchemy as sa
 import sqlalchemy_utils
-
-from app.contrib.account import UserType, ServiceTypeChoices
+from app.contrib.account import ServiceTypeChoices, UserTypeChoices
 
 # revision identifiers, used by Alembic.
-revision = '10cac43cb440'
-down_revision = "26c8f9bcd160"
+revision = 'b91096c2229f'
+down_revision = '40055ce5110a'
 branch_labels = None
 depends_on = None
 
@@ -24,13 +23,15 @@ def upgrade() -> None:
     sa.Column('name', sa.String(length=255), nullable=False),
     sa.Column('email', sa.String(length=255), nullable=True),
     sa.Column('email_verified_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('phone', sa.String(length=255), nullable=True),
+    sa.Column('phone_verified_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('hashed_password', sa.String(length=255), nullable=False),
     sa.Column('is_active', sa.Boolean(), nullable=False),
     sa.Column('is_superuser', sa.Boolean(), nullable=False),
     sa.Column('is_staff', sa.Boolean(), nullable=False),
     sa.Column('user_type', sqlalchemy_utils.types.choice.ChoiceType(
-        choices=UserType, impl=sa.String(length=25)
-    ), nullable=False, default=UserType.user),
+        choices=UserTypeChoices, impl=sa.String(length=25)
+    ), nullable=False),
     sa.Column('id', sa.UUID(), nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
@@ -39,6 +40,7 @@ def upgrade() -> None:
     )
     op.create_index(op.f('ix_user_email'), 'user', ['email'], unique=True)
     op.create_index(op.f('ix_user_id'), 'user', ['id'], unique=True)
+    op.create_index(op.f('ix_user_phone'), 'user', ['phone'], unique=True)
     op.create_table('external_account',
     sa.Column('user_id', sa.UUID(), nullable=False),
     sa.Column('is_active', sa.Boolean(), nullable=False),
@@ -54,6 +56,22 @@ def upgrade() -> None:
     sa.Column('public_metadata', sa.JSON(), nullable=False),
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
     sa.ForeignKeyConstraint(['user_id'], ['user.id'], name='fx_ext_acc_user_id', ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_table('user_address',
+    sa.Column('user_id', sa.UUID(), nullable=False),
+    sa.Column('place_id', sa.Integer(), nullable=False),
+    sa.Column('address', sa.String(length=255), nullable=False),
+    sa.Column('phone', sa.String(length=255), nullable=False),
+    sa.Column('email', sa.String(length=255), nullable=False),
+    sa.Column('customer_name', sa.String(length=255), nullable=False),
+    sa.Column('note', sa.Text(), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('deleted_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+    sa.ForeignKeyConstraint(['place_id'], ['place.id'], name='fx_u_address_place_id', ondelete='RESTRICT'),
+    sa.ForeignKeyConstraint(['user_id'], ['user.id'], name='fx_u_address_user_id', ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('user_phone',
@@ -89,7 +107,9 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_user_session_id'), table_name='user_session')
     op.drop_table('user_session')
     op.drop_table('user_phone')
+    op.drop_table('user_address')
     op.drop_table('external_account')
+    op.drop_index(op.f('ix_user_phone'), table_name='user')
     op.drop_index(op.f('ix_user_id'), table_name='user')
     op.drop_index(op.f('ix_user_email'), table_name='user')
     op.drop_table('user')

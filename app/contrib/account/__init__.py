@@ -8,9 +8,10 @@ class ServiceTypeChoices(TextChoices):
     email = "email"
     steam = "steam"
     google = "google"
+    phone = "phone"
 
 
-class UserType(TextChoices):
+class UserTypeChoices(TextChoices):
     staff = "staff"
     user = "user"
     driver = "driver"

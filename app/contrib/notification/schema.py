@@ -10,3 +10,4 @@ class NotificationVisible(VisibleBase):
     body: str
     plain_body: str = Field(alias="plainBody")
     created_at: datetime = Field(alias="createdAt")
+    only_staff: bool = Field(alias="onStaff")

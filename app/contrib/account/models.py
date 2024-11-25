@@ -3,26 +3,31 @@ from typing import Optional
 from datetime import datetime
 
 from sqlalchemy import String, Boolean, ForeignKey, DateTime, Integer, Text
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID as SUUID
 from sqlalchemy_utils import ChoiceType
-from app.contrib.account import ServiceTypeChoices, UserType
+
+from app.contrib.account import ServiceTypeChoices, UserTypeChoices
 from app.db.models import CreationModificationDateBase, UUIDBase, ModelWithMetadataBase
 
 
 class User(UUIDBase, CreationModificationDateBase):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=True, index=True)
+    email: Mapped[Optional[str]] = mapped_column(String(255), unique=True, nullable=True, index=True)
     email_verified_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
+    phone: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, unique=True, index=True)
+    phone_verified_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_superuser: Mapped[bool] = mapped_column(Boolean, default=False)
     is_staff: Mapped[bool] = mapped_column(Boolean, default=False)
-    user_type: Mapped[UserType] = mapped_column(
-        ChoiceType(choices=UserType, impl=String(25)),
-        nullable=False, default=UserType.user
+    user_type: Mapped[UserTypeChoices] = mapped_column(
+        ChoiceType(choices=UserTypeChoices, impl=String(25)),
+        nullable=False, default=UserTypeChoices.user
     )
+
+    sessions = relationship("UserSession", lazy="noload")
 
 
 class UserSession(UUIDBase, CreationModificationDateBase):

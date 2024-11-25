@@ -1673,6 +1673,17 @@ build-docs = ["cloud-sptheme (>=1.10.1)", "sphinx (>=1.6)", "sphinxcontrib-fullt
 totp = ["cryptography"]
 
 [[package]]
+name = "phonenumbers"
+version = "8.13.50"
+description = "Python version of Google's common library for parsing, formatting, storing and validating international phone numbers."
+optional = false
+python-versions = "*"
+files = [
+    {file = "phonenumbers-8.13.50-py2.py3-none-any.whl", hash = "sha256:bb95dbc0d9979c51f7ad94bcd780784938958861fbb4b75a2fe39ccd3d58954a"},
+    {file = "phonenumbers-8.13.50.tar.gz", hash = "sha256:e05ac6fb7b98c6d719a87ea895b9fc153673b4a51f455ec9afaf557ef4629da6"},
+]
+
+[[package]]
 name = "pillow"
 version = "11.0.0"
 description = "Python Imaging Library (Fork)"
@@ -2603,4 +2614,4 @@ windows = ["python-magic-bin"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "de7b2235e06328e1847c22120ddd25d4d89f3e1729e290dd3bf8ab696498bc6c"
+content-hash = "96318e8408daed38ddf62dc7e5a1f623dd0c4b4e07d6b2e49448a63a14daa54a"

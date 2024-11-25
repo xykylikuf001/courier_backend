@@ -19,4 +19,4 @@ class Notification(CreationModificationDateBase):
     body: Mapped[str] = mapped_column(Text, default="", nullable=False)
     plain_body: Mapped[str] = mapped_column(Text, default="", nullable=False)
     is_read: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-
+    only_staff: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

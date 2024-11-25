@@ -3,15 +3,17 @@ import redis
 
 from typing import Optional
 from fastapi import APIRouter, Depends
+from fastapi.exceptions import RequestValidationError, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import ORJSONResponse
 from fastapi.routing import APIRoute
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware import Middleware
+from pydantic import BaseModel
 
 from app.conf.config import settings
 from app.core.exceptions import DocumentRawNotFound
-from app.core.handlers import request_document_raw_not_found_exception
+from app.core.handlers import request_document_raw_not_found_exception, request_http_exception_error
 from app.core.app import FastAPI
 from app.utils.translation.middleware import (
     LocaleFromHeaderMiddleware,
@@ -21,10 +23,15 @@ from app.utils.translation.middleware import (
 from app.routers.urls import router
 from app.routers.api import api
 from app.routers.dependency import get_language
+from app.core.handlers import request_validation_error
+
+class HTTPExceptionModel(BaseModel):
+    detail: Optional[str] = None
 
 
 def custom_generate_unique_id(route: APIRoute):
     return route.name
+
 
 
 def get_application(
@@ -45,9 +52,13 @@ def get_application(
         root_path=root_path,
         root_path_in_servers=root_path_in_servers,
         generate_unique_id_function=custom_generate_unique_id,
+        responses={
+          400: {"model": HTTPExceptionModel},
+        },
         exception_handlers={
+            HTTPException: request_http_exception_error,
             DocumentRawNotFound: request_document_raw_not_found_exception,
-            # RequestValidationError: request_validation_error,
+            RequestValidationError: request_validation_error,
         },
 
         middleware=[

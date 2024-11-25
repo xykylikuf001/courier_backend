@@ -1,11 +1,12 @@
 from typing import Optional, Union, TYPE_CHECKING
+from uuid import UUID
 
 from sqlalchemy import select
 
 from app.db.repository import CRUDBase, CRUDBaseSync
 from app.utils.security import lazy_jwt_settings
 
-from .models import User, UserSession, ExternalAccount
+from .models import User, UserSession, ExternalAccount, UserPhone
 from .schema import UserBase, UserCreate
 
 if TYPE_CHECKING:
@@ -56,6 +57,12 @@ class CRUDUserSync(CRUDBaseSync[User]):
         return check_pass
 
 
+def verify_password(user_id: UUID, hashed_password: str, password: str):
+    check_pass = lazy_jwt_settings.JWT_PASSWORD_VERIFY(password, hashed_password)
+    if not check_pass:
+        return None
+
+
 class CRUDUser(CRUDBase[User]):
     @staticmethod
     async def get_by_email(async_db: "AsyncSession", *, email: str) -> Optional[User]:
@@ -67,10 +74,20 @@ class CRUDUser(CRUDBase[User]):
 
         if not user_db:
             return None
-        check_pass = lazy_jwt_settings.JWT_PASSWORD_VERIFY(password, user_db.hashed_password)
-        if not check_pass:
+        check_pass = self.verify_password(user_db.hashed_password, password)
+
+        return user_db if check_pass else None
+
+    async def authenticate_by_phone(
+            self, async_db: "AsyncSession", *, phone: str, password: str
+    ) -> Optional["User"]:
+        user_db = await self.first(async_db, params={'phone': phone})
+
+        if not user_db:
             return None
-        return user_db
+        check_pass = self.verify_password(user_db.hashed_password, password)
+
+        return user_db if check_pass else None
 
     async def create(
             self, async_db: "AsyncSession", obj_in: Union[dict, UserCreate],
@@ -84,6 +101,8 @@ class CRUDUser(CRUDBase[User]):
             setattr(db_obj, field, data_in[field])
 
         async_db.add(db_obj)
+        if flush:
+            await async_db.flush()
         if commit:
             await async_db.commit()
             await async_db.refresh(db_obj)
@@ -100,8 +119,7 @@ class CRUDUser(CRUDBase[User]):
         return await super().update(async_db, db_obj=db_obj, obj_in=data_in)
 
     @staticmethod
-    def verify_password(user: User, password: str) -> bool:
-        hashed_password = user.hashed_password
+    def verify_password(hashed_password: str, password: str) -> bool:
         check_pass = lazy_jwt_settings.JWT_PASSWORD_VERIFY(password, hashed_password)
         return check_pass
 
@@ -114,7 +132,12 @@ class CRUDExternalAccount(CRUDBase[ExternalAccount]):
     pass
 
 
+class CRUDUserPhone(CRUDBase[UserPhone]):
+    pass
+
+
 user_repo_sync = CRUDUserSync(User)
 user_repo = CRUDUser(User)
 user_session_repo = CRUDUserSession(UserSession)
 external_account_repo = CRUDExternalAccount(ExternalAccount)
+user_phone_repo = CRUDUserPhone(UserPhone)

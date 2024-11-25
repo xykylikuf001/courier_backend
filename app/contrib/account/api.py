@@ -6,11 +6,13 @@ from pydantic import ValidationError, EmailStr
 from fastapi import APIRouter, Depends, Query, Request, HTTPException, Form
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.exceptions import RequestValidationError
+from fastapi.security.utils import get_authorization_scheme_param
 
 from pydantic_core import ErrorDetails
 
 from sqlalchemy import or_
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from fastapi_sso.sso.google import GoogleSSO
 
@@ -30,11 +32,12 @@ from .tasks import send_email_verification_task, send_password_change_verificati
 from .schema import (
     Token, UserVisible, UserBase, UserCreate,
     SignUpResult, SignUpIn, ProfilePasswordIn, TokenPayload, UserSessionVisible,
-     VerifyToken, ProfileChangeEmail, ResetPassword
+    VerifyToken, ProfileChangeEmail, ResetPassword, AuthPhone, PhoneVerify
 )
 from .models import User
 from .repository import user_repo, user_session_repo, external_account_repo
 from .utils import rand_code
+from ..config.repository import config_repo
 
 api = APIRouter()
 
@@ -71,8 +74,7 @@ async def create_verification_code(
 
 
 async def check_verification_code(
-        aioredis_instance, key: str, code: Optional[str] = None,
-        check_code: Optional[bool] = True,
+        aioredis_instance, key: str, code: str,
         expired_message: Optional[str] = _("Verification code does not exist or already expired"),
         invalid_message: Optional[str] = _("Invalid verification code")
 ):
@@ -82,9 +84,20 @@ async def check_verification_code(
 
     if not verification_code:
         raise HTTPException(status_code=400, detail=expired_message)
-    elif check_code and verification_code != code:
-        assert code is not None, "Code must not be None"
+    elif verification_code != code:
         raise HTTPException(status_code=400, detail=invalid_message)
+    return verification_code
+
+
+async def get_verification_code(
+        aioredis_instance, key: str,
+        expired_message: Optional[str] = _("Verification code does not exist or already expired"),
+):
+    verification_code = await aioredis_instance.get(
+        f"verify:{key}"
+    )
+    if not verification_code:
+        raise HTTPException(status_code=400, detail=expired_message)
     return verification_code
 
 
@@ -125,14 +138,20 @@ async def generate_auth_token(async_db, request, user):
     return result
 
 
-@api.get("/auth/logout/", name="logout", response_model=IResponseBase[UserSessionVisible])
+@api.get("/auth/logout/", name="logout", response_model=IResponseBase[Optional[UserSessionVisible]])
 async def logout_from_account(
         aioredis_instance=Depends(get_aioredis),
         async_db: AsyncSession = Depends(get_async_db),
 
         token_payload: TokenPayload = Depends(get_token_payload),
 ):
-    db_obj = await user_session_repo.get_by_params(async_db, params={"id": token_payload.jti, "revoked_at": None})
+    db_obj = await user_session_repo.first(
+        async_db, params={"id": token_payload.jti, "revoked_at": None}
+    )
+    if not db_obj:
+        return {
+            "message": _("Session does not exist"),
+        }
 
     result = await revoke_session(async_db, db_obj, aioredis_instance)
 
@@ -177,12 +196,51 @@ async def get_token(
     return await generate_auth_token(async_db, request, user)
 
 
+@api.post(
+    '/auth/get-token/by-phone/', name='get-token-by-phone',
+    response_model=Token
+)
+async def get_token_by_phone(
+        request: Request,
+        obj_in: AuthPhone,
+        async_db: AsyncSession = Depends(get_async_db),
+
+):
+    db_obj = await user_repo.authenticate_by_phone(
+        async_db, phone=obj_in.phone, password=obj_in.password,
+    )
+
+    if not db_obj:
+        raise RequestValidationError(
+            [ErrorDetails(
+                msg=_('Incorrect phone or password'),
+                loc=("body", "phone",),
+                type='value_error',
+                input=obj_in.phone
+            )]
+        )
+    if not db_obj.is_active:
+        raise RequestValidationError(
+            [ErrorDetails(
+                msg=_('User is disabled'),
+                loc=("body", 'phone',),
+                type="value_error",
+                input=obj_in.phone
+            )]
+        )
+    return await generate_auth_token(async_db, request, db_obj)
+
+
 @api.post("/auth/verify-token/", name="verify-token", response_model=bool)
 async def verify_token(
         token_in: VerifyToken
 ) -> bool:
+    if token_in.access_token.startswith("Bearer"):
+        token_schema, param = get_authorization_scheme_param(token_in.access_token)
+    else:
+        param = token_in.access_token
     try:
-        lazy_jwt_settings.JWT_DECODE_HANDLER(token_in.access_token)
+        lazy_jwt_settings.JWT_DECODE_HANDLER(param)
     except (jwt.JWTError, ValidationError):
         return False
     return True
@@ -268,42 +326,65 @@ async def sign_up(
                 input=obj_in.policy
             )]
         )
-
-    is_exist = await user_repo.exists(async_db, params={"email": obj_in.email})
-
-    if is_exist:
-        raise RequestValidationError(
-            [ErrorDetails(
-                msg="User with this email already exist",
-                loc=("body", "email",),
-                type='value_error',
-                input=obj_in.email
-            )]
+    if obj_in.with_email:
+        is_exist = await user_repo.exists(async_db, params={"email": obj_in.email})
+        if is_exist:
+            raise RequestValidationError(
+                [ErrorDetails(
+                    msg="User with this email already exist",
+                    loc=("body", "email",),
+                    type='value_error',
+                    input=obj_in.email
+                )]
+            )
+        user = await user_repo.create(
+            async_db=async_db,
+            obj_in={
+                "email": obj_in.email,
+                "name": obj_in.name,
+                "password": obj_in.password,
+            }
         )
 
-    user = await user_repo.create(
-        async_db=async_db,
-        obj_in={
-            "email": obj_in.email,
-            "name": obj_in.name,
-            "password": obj_in.password
-        }
-    )
+        verification_code = await create_verification_code(
+            aioredis_instance,
+            key=f'{obj_in.email}-{ServiceTypeChoices.email.value}',
+        )
 
-    verification_code = await create_verification_code(
-        aioredis_instance,
-        key=f'{obj_in.email}-{ServiceTypeChoices.email.value}',
-    )
+        send_email_verification_task.delay(email=user.email, code=verification_code)
 
-    send_email_verification_task.delay(email=user.email, code=verification_code)
+        result = await generate_auth_token(async_db, request, user)
+        if obj_in.subscription:
+            # Todo cover subscription logic
+            pass
+    else:
+        is_exist = await user_repo.exists(async_db, params={"phone": obj_in.phone})
+        if is_exist:
+            raise RequestValidationError(
+                [ErrorDetails(
+                    msg="User with this phone already exist",
+                    loc=("body", "phone",),
+                    type='value_error',
+                    input=obj_in.phone
+                )]
+            )
+        user = await user_repo.create(
+            async_db=async_db,
+            obj_in={
+                "name": obj_in.name,
+                "password": obj_in.password,
+                "phone": obj_in.phone,
+            },
+        )
 
-    result = await generate_auth_token(async_db, request, user)
-    if obj_in.subscription:
-        # Todo cover subscription logic
-        pass
+        verification_code = await create_verification_code(
+            aioredis_instance,
+            key=f'{obj_in.phone}-{ServiceTypeChoices.phone.value}',
+        )
+        result = await generate_auth_token(async_db, request, user)
     return {
         "data": result,
-        "message": "Thanks for sign-up! Nice journey!"
+        "message": _("Thanks for sign-up! Nice journey!")
     }
 
 
@@ -349,17 +430,85 @@ async def auth_by_google(
     }
 
 
+@api.get(
+    '/auth/phone/verify/send/',
+    name='auth-phone-verify-send',
+    response_model=IResponseBase[PhoneVerify]
+)
+async def send_phone_verification_code(
+        user=Depends(get_current_user),
+        aioredis_instance=Depends(get_aioredis),
+        async_db: AsyncSession = Depends(get_async_db)
+):
+    if user.phone is None:
+        raise HTTPException(status_code=400, detail=_("You do not have phone yet."))
+    if user.phone_verified_at:
+        raise HTTPException(status_code=400, detail=_("You phone already verified."))
+
+    verification_code = await create_verification_code(
+        aioredis_instance,
+        key=f'{user.phone}-{ServiceTypeChoices.phone.value}',
+    )
+    data = {
+        "phone": user.phone,
+        "support_phone": None
+    }
+    db_config = await config_repo.first(async_db)
+    if db_config:
+        data['support_phone'] = db_config.support_phone
+    # todo cover phone verification code sending
+
+    return {
+        "data": data,
+        "message": _("Verification code send to your phone")
+    }
+
+
+@api.get('/auth/phone/verify/confirm/', name='auth-phone-verify', response_model=IResponseBase[
+    UserVisible
+])
+async def verify_phone_with_code(
+        code: str = Query(..., max_length=255),
+        user=Depends(get_current_user),
+        async_db: AsyncSession = Depends(get_async_db),
+        aioredis_instance=Depends(get_aioredis),
+):
+    if user.phone is None:
+        raise HTTPException(status_code=400, detail=_("You do not have email yet."))
+    if user.phone_verified_at:
+        raise HTTPException(status_code=400, detail=_("You email already verified."))
+
+    await check_verification_code(
+        aioredis_instance,
+        key=f'{user.phone}-{ServiceTypeChoices.phone.value}',
+        code=code,
+    )
+    db_obj = await user_repo.get(async_db, obj_id=user.id)
+    result = await user_repo.update(
+        async_db,
+        db_obj=db_obj,
+        obj_in={"phone_verified_at": now()}
+    )
+
+    return {
+        "message": _("Phone verified"),
+        "data": result
+    }
 
 
 @api.post('/auth/email/verify/send/', name='auth-email-verify-send', response_model=IResponseBase[str])
 async def send_email_verification_code(
-        email: EmailStr = Form(...),
         user=Depends(get_current_user),
         aioredis_instance=Depends(get_aioredis)
 ):
+    if user.email is None:
+        raise HTTPException(statnus_code=400, detail=_("You do not have email yet."))
+    if user.email_verified_at:
+        raise HTTPException(status_code=400, detail=_("You email already verified."))
+
     verification_code = await create_verification_code(
         aioredis_instance,
-        key=f'{email}-{ServiceTypeChoices.email.value}',
+        key=f'{user.email}-{ServiceTypeChoices.email.value}',
     )
 
     send_email_verification_task.delay(email=user.email, code=verification_code)
@@ -370,9 +519,9 @@ async def send_email_verification_code(
     }
 
 
-@api.get('/auth/email/verify/{code}/confirm/', name='auth-email-verify', response_model=IResponseBase[str])
+@api.get('/auth/email/verify/confirm/', name='auth-email-verify', response_model=IResponseBase[UserVisible])
 async def verify_email_with_code(
-        code: str,
+        code: str = Query(..., max_length=255),
         user=Depends(get_current_user),
         async_db: AsyncSession = Depends(get_async_db),
         aioredis_instance=Depends(get_aioredis),
@@ -388,14 +537,15 @@ async def verify_email_with_code(
         code=code,
     )
 
-    await user_repo.raw_update(
-        async_db, expressions=(User.id == user.id,),
+    result = await user_repo.update(
+        async_db,
+        db_obj=user,
         obj_in={"email_verified_at": now()}
     )
 
     return {
         "message": _("Email verified"),
-        "data": ""
+        "data": result
     }
 
 
@@ -448,9 +598,11 @@ async def count_users(
 
 
 @api.post(
-    '/user/create/', name="user-create",
+    '/user/create/',
+    name="user-create",
     response_model=IResponseBase[UserVisible],
     status_code=201,
+    dependencies=[Depends(get_staff_user)],
 )
 async def account_create(
         obj_in: UserCreate,
@@ -495,11 +647,13 @@ async def get_single_user(
         async_db: AsyncSession = Depends(get_async_db),
 
 ):
-    return await user_repo.get(async_db, obj_id=obj_id)
+    options = [selectinload(User.sessions)]
+    return await user_repo.get(async_db, obj_id=obj_id, options=options)
 
 
 @api.patch(
     "/user/{obj_id}/update/", name='user-update', response_model=IResponseBase[UserVisible],
+    dependencies=[Depends(get_staff_user)],
 
 )
 async def update_user(
@@ -519,7 +673,7 @@ async def update_user(
             )]
         )
     data = obj_in.model_dump(exclude_unset=True)
-
+    print(obj_in)
     if obj_in.email and obj_in.email != db_obj.email:
         is_exist = await user_repo.exists(async_db, params={"email": obj_in.email})
         if is_exist:
@@ -540,8 +694,10 @@ async def update_user(
 
 
 @api.delete(
-    "/user/{obj_id}/delete/", name='user-delete',
+    "/user/{obj_id}/delete/",
+    name='user-delete',
     status_code=204,
+    dependencies=[Depends(get_staff_user)],
 
 )
 async def delete_user(
@@ -554,7 +710,51 @@ async def delete_user(
     await user_repo.remove(async_db, expressions=[User.id == obj_id])
 
 
-@api.patch("/profile/update/", name="user-profile-update", response_model=IResponseBase[UserVisible])
+@api.get(
+    '/user/phone/verify/manual/', name='user-phone-verify-manual', response_model=IResponseBase[UserVisible],
+    dependencies=[Depends(get_staff_user)],
+)
+async def user_phone_verify_manual(
+        obj_id: UUID,
+        async_db: AsyncSession = Depends(get_async_db),
+):
+    db_obj = await user_repo.get(async_db, obj_id=obj_id)
+    if db_obj.phone is None or db_obj.phone == "":
+        raise HTTPException(detail=_("User does not have phone number."), status_code=400)
+
+    if db_obj.phone_verified_at is not None:
+        raise HTTPException(detail=_("User phone already verified."), status_code=400)
+    await user_repo.update(async_db, db_obj=db_obj, obj_in={"phone_verified_at": now()})
+    return {
+        "message": "User phone verified",
+        "data": db_obj
+    }
+
+
+@api.get(
+    '/user/phone/verify/get-code/',
+    name='user-phone-verify-get-code',
+    response_model=IResponseBase[str],
+    dependencies=[Depends(get_staff_user)],
+)
+async def user_phone_verify_get_code(
+        phone: str = Query(..., max_length=50),
+        aioredis_instance=Depends(get_aioredis)
+
+):
+    verification_code = await get_verification_code(
+        aioredis_instance,
+        key=f'{phone}-{ServiceTypeChoices.phone.value}',
+    )
+    return {
+        "message": f"User verification code for {phone}",
+        "data": verification_code
+    }
+
+
+@api.patch(
+    "/profile/update/", name="user-profile-update", response_model=IResponseBase[UserVisible]
+)
 async def user_profile_update(
         name: str = Form(..., max_length=255),
         user: User = Depends(get_current_user),
@@ -757,7 +957,11 @@ async def forgot_password(
     }
 
 
-@api.post("/profile/reset-password/", name="user-profile-reset-password", response_model=IResponseBase[str])
+@api.post(
+    "/profile/reset-password/",
+    name="user-profile-reset-password",
+    response_model=IResponseBase[str]
+)
 async def reset_password(
         obj_in: ResetPassword,
         aioredis_instance=Depends(get_aioredis),
