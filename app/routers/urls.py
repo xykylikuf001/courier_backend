@@ -1,6 +1,5 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 from fastapi.responses import FileResponse
-
 
 router = APIRouter()
 
@@ -13,3 +12,10 @@ async def root_path():
 @router.get('/favicon.ico', response_class=FileResponse, name='favicon', tags=['favicon'])
 async def favicon() -> str:
     return 'static/images/logo/favicon.ico'
+
+
+@router.get('/android-release/{version}/', response_class=FileResponse, name='release', tags=['release'])
+async def android_release(
+        version: str = Query(..., max_length=50)
+) -> str:
+    return 'release/android/latest/release-apk.zip'

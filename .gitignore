@@ -22,3 +22,5 @@ media/pdf
 media/image/
 app/contrib/graph_knowledge/data
 graph_analysis_logs/
+
+release/
