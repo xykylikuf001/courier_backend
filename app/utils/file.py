@@ -35,17 +35,23 @@ async def chunked_copy(src: UploadFile, dst: str) -> None:
             buffer.write(contents)
 
 
-def upload_to(filename: str, extension: str, file_dir: str = 'image/original') -> str:
+def upload_to(
+        filename: str, extension: str, file_dir: str = 'image/original',
+        with_datetime: Optional[bool] = True,
+) -> str:
     """
     Return path seperated by date, starts with slash
     :param filename:
     :param extension:
     :param file_dir:
+    :param with_datetime:
     :return:
     """
-    now: datetime = datetime.now()
-    extension: str = extension.lower()
-    parent_dir: str = f'{file_dir}/{now:%Y/%m/%d}'
+    parent_dir = file_dir
+    if with_datetime:
+        now: datetime = datetime.now()
+        extension: str = extension.lower()
+        parent_dir: str = f'{file_dir}/{now:%Y/%m/%d}'
 
     base_dir = structure_settings.MEDIA_DIR
 
@@ -131,14 +137,16 @@ def save_file(
         file: UploadFile,
         file_dir: str,
         filename: Optional[str] = None,
+        extension: Optional[str] = None,
+        base_dir: Optional[str] = structure_settings.MEDIA_DIR,
+        with_datetime: Optional[bool] = True
 ) -> str:
     if filename is None:
         filename = uuid.uuid4().hex
 
-    base, extension = os.path.splitext(file.filename)
-    path = upload_to(filename, extension, file_dir)
-
-    base_dir = structure_settings.MEDIA_DIR
+    if not extension:
+        base, extension = os.path.splitext(file.filename)
+    path = upload_to(filename, extension, file_dir, with_datetime=with_datetime)
 
     with open(f'{base_dir}/{path}', 'wb+') as fs:
         # content = file.file.read()
@@ -148,8 +156,9 @@ def save_file(
     return path
 
 
-def delete_file(path: str) -> bool:
-    base_dir = structure_settings.MEDIA_DIR
+def delete_file(
+        path: str, base_dir: Optional[str] = structure_settings.MEDIA_DIR
+) -> bool:
     path = f'{base_dir}/{path}'
     if os.path.exists(path):
         os.remove(path)
@@ -159,6 +168,5 @@ def delete_file(path: str) -> bool:
         return False
 
 
-def get_file_path(path: str):
-    base_dir = structure_settings.MEDIA_DIR
+def get_file_path(path: str, base_dir: Optional[str] = structure_settings.MEDIA_DIR):
     return f'/{base_dir}/{path}'

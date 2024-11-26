@@ -45,6 +45,7 @@ flower = "^2.0.1"
 fastapi-sso = "^0.17.0"
 phonenumbers = "^8.13.50"
 gunicorn = "^23.0.0"
+psutil = "^6.1.0"
 
 [build-system]
 requires = ["poetry-core"]

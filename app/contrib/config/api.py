@@ -1,3 +1,5 @@
+
+
 from typing import Optional, Literal
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -35,11 +37,6 @@ async def config_detail(
     return db_obj
 
 
-@api.get('/system/', name='system-detail', response_model=dict,
-         dependencies=[Depends(get_active_user)])
-async def system_detail(
-):
-    return {}
 
 
 @api.post(
