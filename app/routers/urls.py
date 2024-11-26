@@ -98,7 +98,6 @@ async def favicon() -> str:
 async def android_release(
         apk_version: str,
 ) -> FileResponse:
-    # return f'release/android/{apk_version}/release-apk.zip'
     return FileResponse(
         path=f'release/android/{apk_version}/release-apk.zip',
         filename=f"android-{apk_version}-release-apk.zip"
