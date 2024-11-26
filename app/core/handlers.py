@@ -22,4 +22,4 @@ async def request_validation_error(request: "Request", exc: "RequestValidationEr
 async def request_http_exception_error(request: "Request", exc: "HTTPException"):
     errors = exc
     print(errors)
-    return ORJSONResponse(status_code=400, content={"detail": str(exc.detail)})
+    return ORJSONResponse(status_code=exc.status_code, content={"detail": str(exc.detail)})

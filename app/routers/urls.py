@@ -98,6 +98,8 @@ async def favicon() -> str:
 async def android_release(
         apk_version: str,
 ) -> FileResponse:
+    if not os.path.exists(f'release/android/{apk_version}/release-apk.zip'):
+        raise HTTPException(status_code=404, detail="File does not exist")
     return FileResponse(
         path=f'release/android/{apk_version}/release-apk.zip',
         filename=f"android-{apk_version}-release-apk.zip"
