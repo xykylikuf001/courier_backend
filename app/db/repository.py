@@ -183,6 +183,7 @@ class CRUDBaseSync(Generic[ModelType]):
             self,
             db: "Session",
             *,
+            stmt: Optional[Select] = None,
             offset: int = 0,
             limit: int = 100,
             q: Optional[dict] = None,
@@ -201,8 +202,8 @@ class CRUDBaseSync(Generic[ModelType]):
         :param options:
         :return:
         """
-        stmt = select(self.model)
-
+        if stmt is None:
+            stmt = select(self.model)
         if options:
             stmt = stmt.options(*options)
         if expressions:
@@ -220,9 +221,9 @@ class CRUDBaseSync(Generic[ModelType]):
 
     def get_by_params(
             self, db: "Session",
-
-            options: Optional[Iterable] = (),
-            expressions: Optional[Iterable] = (),
+            stmt: Optional[Select] = None,
+            options: Optional[Iterable] = None,
+            expressions: Optional[Iterable] = None,
             params: Optional[dict] = None
     ) -> ModelType:
         """
@@ -233,10 +234,15 @@ class CRUDBaseSync(Generic[ModelType]):
         :param params:
         :return:
         """
-        if params is None:
-            params = {}
-        result = db.execute(select(self.model).options(*options).filter(*expressions).filter_by(**params))
-
+        if not stmt:
+            stmt = select(self.model)
+        if options:
+            stmt = stmt.options(*options)
+        if expressions:
+            stmt = stmt.filter(*expressions)
+        if paremts:
+            stmt = stmt.filter_by(**params)
+        result = db.execute(stmt)
         return result.scalar_one()
 
     def get(
@@ -266,6 +272,7 @@ class CRUDBaseSync(Generic[ModelType]):
         obj_in = jsonable_encoder(obj_in, custom_encoder={Choices: lambda x: x.value})
         for field in obj_data:
             if field in obj_in:
+                print(field, obj_in[field])
                 setattr(db_obj, field, obj_in[field])
         db.add(db_obj)
         db.commit()

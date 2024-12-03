@@ -1,0 +1,390 @@
+# Translations template for PROJECT.
+# Copyright (C) 2022 ORGANIZATION
+# This file is distributed under the same license as the PROJECT project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2022.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2022-11-09 12:23+0500\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.10.3\n"
+
+#: app/contrib/admin/dependency.py:39 app/contrib/seller/dependency.py:37
+#: app/routers/dependency.py:81 app/routers/dependency.py:99
+msgid "Your account is disabled"
+msgstr ""
+
+#: app/contrib/admin/api/auth.py:68 app/contrib/auth/api.py:97
+#: app/contrib/auth/repository.py:156
+msgid "Something went wrong"
+msgstr ""
+
+#: app/contrib/admin/api/order.py:181 app/contrib/admin/api/order.py:207
+#: app/contrib/seller/api/order.py:210
+msgid "Order successfully updated"
+msgstr ""
+
+#: app/contrib/admin/api/review.py:57
+msgid "Review successfully moderated"
+msgstr ""
+
+#: app/contrib/admin/api/user.py:54
+msgid "Email already exist"
+msgstr ""
+
+#: app/contrib/admin/api/user.py:59
+msgid "Staff email successfully created"
+msgstr ""
+
+#: app/contrib/auth/__init__.py:12
+msgid "admin"
+msgstr ""
+
+#: app/contrib/auth/__init__.py:13
+msgid "moderator"
+msgstr ""
+
+#: app/contrib/auth/__init__.py:14
+msgid "seller"
+msgstr ""
+
+#: app/contrib/auth/__init__.py:15
+msgid "member"
+msgstr ""
+
+#: app/contrib/auth/__init__.py:16
+msgid "agent"
+msgstr ""
+
+#: app/contrib/auth/__init__.py:17 app/contrib/location/__init__.py:11
+msgid "other"
+msgstr ""
+
+#: app/contrib/auth/__init__.py:24
+msgid "The account was created"
+msgstr ""
+
+#: app/contrib/auth/__init__.py:25
+msgid "Password reset link was sent to the customer"
+msgstr ""
+
+#: app/contrib/auth/__init__.py:26
+msgid "The account password was reset"
+msgstr ""
+
+#: app/contrib/auth/__init__.py:27
+msgid "The account password was changed"
+msgstr ""
+
+#: app/contrib/auth/__init__.py:28
+msgid "The user requested to change the account's email address."
+msgstr ""
+
+#: app/contrib/auth/__init__.py:29
+msgid "The account email address was changed"
+msgstr ""
+
+#: app/contrib/auth/__init__.py:32
+msgid "A customer was deleted"
+msgstr ""
+
+#: app/contrib/auth/__init__.py:34
+msgid "A customer's email address was edited"
+msgstr ""
+
+#: app/contrib/auth/__init__.py:36
+msgid "A customer's name was edited"
+msgstr ""
+
+#: app/contrib/auth/__init__.py:37
+msgid "A note was added to the customer"
+msgstr ""
+
+#: app/contrib/auth/api.py:47
+msgid "Success"
+msgstr ""
+
+#: app/contrib/auth/schema.py:142
+msgid "Passwords does not match"
+msgstr ""
+
+#: app/contrib/catalogue/repository.py:222
+msgid "Product does not exists"
+msgstr ""
+
+#: app/contrib/checkout/api.py:141
+msgid "Product is disabled"
+msgstr ""
+
+#: app/contrib/checkout/api.py:144
+msgid "Product does not available"
+msgstr ""
+
+#: app/contrib/checkout/api.py:148
+msgid "Product store is disabled"
+msgstr ""
+
+#: app/contrib/checkout/api.py:304
+msgid "Shipping type is required for this product"
+msgstr ""
+
+#: app/contrib/checkout/api.py:313
+msgid "Shipping type does not available for this product"
+msgstr ""
+
+#: app/contrib/checkout/api.py:333
+msgid "Product already in you cart"
+msgstr ""
+
+#: app/contrib/checkout/api.py:349
+msgid "Product added to cart"
+msgstr ""
+
+#: app/contrib/checkout/api.py:371
+#, python-format
+msgid "Product added to your cart: Count is %(count)s"
+msgstr ""
+
+#: app/contrib/checkout/api.py:392
+msgid "Product removed from your cart"
+msgstr ""
+
+#: app/contrib/location/__init__.py:6
+msgid "country"
+msgstr ""
+
+#: app/contrib/location/__init__.py:7
+msgid "region"
+msgstr ""
+
+#: app/contrib/location/__init__.py:8
+msgid "city"
+msgstr ""
+
+#: app/contrib/location/__init__.py:9
+msgid "district"
+msgstr ""
+
+#: app/contrib/location/__init__.py:10
+msgid "village"
+msgstr ""
+
+#: app/contrib/order/__init__.py:7
+msgid "processing"
+msgstr ""
+
+#: app/contrib/order/__init__.py:8
+msgid "accepted"
+msgstr ""
+
+#: app/contrib/order/__init__.py:9
+msgid "completed"
+msgstr ""
+
+#: app/contrib/order/__init__.py:10
+msgid "rejected by seller"
+msgstr ""
+
+#: app/contrib/order/__init__.py:11
+msgid "cancelled"
+msgstr ""
+
+#: app/contrib/order/__init__.py:12
+msgid "sent"
+msgstr ""
+
+#: app/contrib/order/api.py:169
+msgid "Can't cancel this order"
+msgstr ""
+
+#: app/contrib/order/api.py:179
+msgid "Order successfully cancelled"
+msgstr ""
+
+#: app/contrib/payment/__init__.py:6
+msgid "terminal"
+msgstr ""
+
+#: app/contrib/payment/__init__.py:7
+msgid "cash"
+msgstr ""
+
+#: app/contrib/payment/__init__.py:8
+msgid "card"
+msgstr ""
+
+#: app/contrib/payment/__init__.py:12
+msgid "Rysgal bank"
+msgstr ""
+
+#: app/contrib/payment/__init__.py:13
+msgid "Halk bank"
+msgstr ""
+
+#: app/contrib/payment/__init__.py:14
+msgid "Senagat bank"
+msgstr ""
+
+#: app/contrib/payment/__init__.py:15
+msgid "Dasharyykdysady bank"
+msgstr ""
+
+#: app/contrib/payment/__init__.py:16
+msgid "Turkmenistan bank"
+msgstr ""
+
+#: app/contrib/payment/__init__.py:17
+msgid "Dayhan bank"
+msgstr ""
+
+#: app/contrib/payment/__init__.py:18
+msgid "Turkmen-Tuk bank"
+msgstr ""
+
+#: app/contrib/review/__init__.py:6
+msgid "pending"
+msgstr ""
+
+#: app/contrib/review/__init__.py:7
+msgid "canceled"
+msgstr ""
+
+#: app/contrib/review/__init__.py:8
+msgid "submitted"
+msgstr ""
+
+#: app/contrib/review/__init__.py:9
+msgid "disable"
+msgstr ""
+
+#: app/contrib/review/api.py:79
+msgid "You have not buy this product"
+msgstr ""
+
+#: app/contrib/review/api.py:90
+msgid "Review successfully added"
+msgstr ""
+
+#: app/contrib/shipping/__init__.py:6
+msgid "road"
+msgstr ""
+
+#: app/contrib/shipping/__init__.py:7
+msgid "ocean"
+msgstr ""
+
+#: app/contrib/shipping/__init__.py:8
+msgid "on air"
+msgstr ""
+
+#: app/contrib/store/__init__.py:6
+msgid "moderated"
+msgstr ""
+
+#: app/contrib/store/__init__.py:7
+msgid "banned"
+msgstr ""
+
+#: app/contrib/store/__init__.py:8
+msgid "on moderation"
+msgstr ""
+
+#: app/core/authentication.py:34
+msgid "Anonymous user"
+msgstr ""
+
+#: app/core/exceptions.py:53
+msgid "Permission denied"
+msgstr ""
+
+#: app/core/exceptions.py:68
+msgid "Requested page does not exist"
+msgstr ""
+
+#: app/core/handlers.py:56
+msgid "Wrong data passed"
+msgstr ""
+
+#: app/core/schema.py:69
+msgid "Please provide a valid mobile phone number. 1003"
+msgstr ""
+
+#: app/core/schema.py:72
+msgid "Please provide a valid mobile phone number. 1004"
+msgstr ""
+
+#: app/routers/router.py:12
+msgid "Hello, market"
+msgstr ""
+
+#: app/utils/emails.py:68
+#, python-format
+msgid "%(store_name)s - new order created"
+msgstr ""
+
+#: app/utils/emails.py:89
+#, python-format
+msgid "%(project_name)s - Email verification for user with email %(email)s"
+msgstr ""
+
+#: app/utils/emails.py:114
+#, python-format
+msgid "%(project_name)s - Password recovery for user with email %(email)s"
+msgstr ""
+
+#: templates/invoice/index.html:4 templates/invoice/index.html:5
+msgid "invoice"
+msgstr ""
+
+#: templates/invoice/index.html:9
+msgid "Thank you!"
+msgstr ""
+
+#: templates/invoice/index.html:28 templates/invoice/index.html:62
+msgid "Order number"
+msgstr ""
+
+#: templates/invoice/index.html:30
+msgid "Date"
+msgstr ""
+
+#: templates/invoice/index.html:37
+msgid "Product"
+msgstr ""
+
+#: templates/invoice/index.html:38
+msgid "Price"
+msgstr ""
+
+#: templates/invoice/index.html:39
+msgid "Unit discount"
+msgstr ""
+
+#: templates/invoice/index.html:40
+msgid "Quantity"
+msgstr ""
+
+#: templates/invoice/index.html:41
+msgid "Subtotal"
+msgstr ""
+
+#: templates/invoice/index.html:61
+msgid "Due by"
+msgstr ""
+
+#: templates/invoice/index.html:63
+msgid "Discount"
+msgstr ""
+
+#: templates/invoice/index.html:64
+msgid "Total due"
+msgstr ""
+

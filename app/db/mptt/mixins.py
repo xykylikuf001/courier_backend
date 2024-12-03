@@ -13,7 +13,7 @@ SQLAlchemy nested sets mixin
 # SQLAlchemy
 from sqlalchemy import Column, Integer, ForeignKey, asc, desc
 from sqlalchemy.orm import backref, relationship, object_session
-from sqlalchemy.ext.hybrid import hybrid_method
+from sqlalchemy.ext.hybrid import hybrid_method, hybrid_property
 from sqlalchemy.orm.session import Session
 from sqlalchemy.ext.declarative import declared_attr
 
@@ -65,19 +65,19 @@ class BaseNestedSets(object):
     def tree_id(cls):
         return Column("tree_id", Integer)
 
-    @declared_attr
-    def parent_id(cls):
-        pk = cls.get_pk_column()
-        if not pk.name:
-            pk.name = cls.get_pk_name()
-
-        return Column(
-            "parent_id",
-            pk.type,
-            ForeignKey(
-                "{}.{}".format(cls.__tablename__, pk.name), ondelete="CASCADE"
-            ),
-        )
+    # @declared_attr
+    # def parent_id(cls):
+    #     pk = cls.get_pk_column()
+    #     if not pk.name:
+    #         pk.name = cls.get_pk_name()
+    #
+    #     return Column(
+    #         "parent_id",
+    #         pk.type,
+    #         ForeignKey(
+    #             "{}.{}".format(cls.__tablename__, pk.name), ondelete="CASCADE"
+    #         ),
+    #     )
 
     @declared_attr
     def parent(self):
@@ -456,5 +456,28 @@ class BaseNestedSets(object):
         trees = session.query(cls).filter_by(parent_id=None)
         if tree_id:
             trees = trees.filter_by(tree_id=tree_id)
+        print(trees)
         for tree in trees:
+            print(tree.tree_id)
             cls.rebuild_tree(session, tree.tree_id)
+
+    @hybrid_property
+    def has_children(self):
+        """
+        Determines if the node has children in O(1) time.
+
+        Returns:
+            bool: True if the node has children, False otherwise.
+        """
+        return (self.right - self.left) > 1
+
+    @has_children.expression
+    def has_children(cls):
+        """
+        SQLAlchemy expression for checking if a node has children in O(1).
+
+        Returns:
+            sqlalchemy.sql.expression: SQL case expression to u
+            se in queries.
+        """
+        return (cls.right - cls.left) > 1

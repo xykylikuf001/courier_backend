@@ -41,13 +41,15 @@ class AuthPhone(BaseModel):
     password: str = Field(..., max_length=50, min_length=5)
 
 
-class ProfilePasswordIn(BaseModel):
+class PasswordIn(BaseModel):
     old_password: str = Field(..., alias='oldPassword', max_length=50)
     password_confirm: str = Field(..., alias='passwordConfirm', max_length=50)
     password: str = Field(..., max_length=50, min_length=5)
-    code: str = Field(..., max_length=50)
-
     _validate_password = field_validator("password")(validate_password)
+
+
+class ProfilePasswordIn(PasswordIn):
+    code: str = Field(..., max_length=50)
 
 
 class UserBase(BaseModel):
@@ -66,7 +68,8 @@ class UserBase(BaseModel):
     _normalize_empty = field_validator(
         "email",
         "phone",
-        "email_verified_at", "phone_verified_at",
+        "email_verified_at",
+        "phone_verified_at",
         mode="before"
     )(string_to_null_field)
 
@@ -180,9 +183,11 @@ class UserSessionVisible(BaseModel):
     id: UUID
     user_id: UUID = Field(alias="userId")
     revoked_at: Optional[datetime] = Field(None, alias="revokedAt")
+    expire_at: Optional[datetime] = Field(None, alias="expireAt")
     user_agent: Optional[str] = Field(None, alias="userAgent")
     ip_address: Optional[str] = Field(None, alias="ipAddress")
     created_at: datetime = Field(alias="createdAt")
+    firebase_device_id: Optional[str] = Field(None, alias="firebaseDeviceId")
 
 
 class UserSession(BaseModel):

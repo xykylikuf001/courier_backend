@@ -79,8 +79,8 @@ class ConfigTranslation(Base):
     seo_keywords: Mapped[str] = mapped_column('seo_keywords', String(500), default='')
 
     locale: Mapped[LanguagesChoices] = mapped_column(
-        ChoiceType(choices=LanguagesChoices, impl=String(10)), primary_key=True, unique=True)
+        ChoiceType(choices=LanguagesChoices, impl=String(10)), primary_key=True, unique=True,
+    )
     __table_args__ = (
         UniqueConstraint('id', 'locale', name='ux_config_tr_id_locale'),
     )
-

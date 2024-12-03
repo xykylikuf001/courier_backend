@@ -16,6 +16,7 @@ from app.conf.config import settings
 from app.core.exceptions import DocumentRawNotFound
 from app.core.handlers import request_document_raw_not_found_exception, request_http_exception_error
 from app.core.app import FastAPI
+from app.utils.translation import load_gettext_translations
 from app.utils.translation.middleware import (
     LocaleFromHeaderMiddleware,
     LocaleFromCookieMiddleware,
@@ -23,7 +24,7 @@ from app.utils.translation.middleware import (
 )
 from app.routers.urls import router
 from app.routers.api import api
-from app.routers.dependency import get_language
+from app.routers.dependency import get_locale
 from app.core.handlers import request_validation_error
 
 class HTTPExceptionModel(BaseModel):
@@ -43,8 +44,10 @@ def get_application(
         openapi_url: Optional[str] = "/openapi.json",
         api_prefix: Optional[str] = ''
 ) -> FastAPI:
+    load_gettext_translations(directory=settings.LOCALE_PATH, domain='messages')
+
     application = FastAPI(
-        dependencies=[Depends(get_language)],
+        dependencies=[Depends(get_locale)],
         default_response_class=ORJSONResponse,
         title=settings.PROJECT_NAME,
         debug=settings.DEBUG,
@@ -68,8 +71,8 @@ def get_application(
                 language_header=settings.LANGUAGE_HEADER,
                 default_code=settings.LANGUAGE_CODE
             ),
-            Middleware(LocaleFromCookieMiddleware, language_cookie=settings.LANGUAGE_COOKIE),
-            Middleware(LocaleFromQueryParamsMiddleware),
+            # Middleware(LocaleFromCookieMiddleware, language_cookie=settings.LANGUAGE_COOKIE),
+            # Middleware(LocaleFromQueryParamsMiddleware),
         ],
     )
     if settings.BACKEND_CORS_ORIGINS:

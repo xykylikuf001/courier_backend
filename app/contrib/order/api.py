@@ -1,8 +1,7 @@
 from typing import Optional, Literal
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from app.routers.dependency import get_commons, get_async_db, get_active_user, get_staff_user, get_current_user
@@ -10,7 +9,8 @@ from app.core.schema import CommonsModel, IPaginationDataBase, IResponseBase
 from app.utils.translation import gettext as _
 from app.utils.datetime.timezone import now
 from app.contrib.account.models import User
-from . import OrderStatusChoices
+from app.contrib.order import OrderStatusChoices
+
 from .repository import order_repo
 from .schema import OrderVisible, OrderCreate, OrderBase
 from .models import Order
@@ -23,13 +23,13 @@ api = APIRouter()
     dependencies=[Depends(get_staff_user)]
 )
 async def get_order_list(
-        async_db: AsyncSession = Depends(get_async_db),
+        async_db = Depends(get_async_db),
         commons: CommonsModel = Depends(get_commons),
         order_by: Optional[Literal[
             "created_at", "-created_at"
         ]] = "-created_at"
 ) -> dict:
-    obj_list = await order_repo.get_all(
+    rows = await order_repo.get_all(
         async_db=async_db,
         limit=commons.limit,
         offset=commons.offset,
@@ -39,7 +39,7 @@ async def get_order_list(
     return {
         'page': commons.page,
         'limit': commons.limit,
-        'rows': obj_list,
+        'rows': rows,
     }
 
 
@@ -49,7 +49,7 @@ async def get_order_list(
     dependencies=[Depends(get_staff_user)]
 )
 async def count_orders(
-        async_db: AsyncSession = Depends(get_async_db)
+        async_db = Depends(get_async_db)
 ):
     return await order_repo.count(async_db)
 
@@ -62,7 +62,7 @@ async def count_orders(
 )
 async def get_single_order(
         obj_id: UUID,
-        async_db: AsyncSession = Depends(get_async_db),
+        async_db = Depends(get_async_db),
 ):
     options = [joinedload(Order.user).load_only(User.id, User.name)]
     db_obj = await order_repo.get(obj_id=obj_id, async_db=async_db, options=options)
@@ -71,12 +71,12 @@ async def get_single_order(
 
 @api.post(
     '/{obj_id}/update/', name='order-update', response_model=IResponseBase[OrderVisible],
+    dependencies=[Depends(get_staff_user)]
 )
 async def update_order(
         obj_id: UUID,
         obj_in: OrderBase,
-        async_db: AsyncSession = Depends(get_async_db),
-        user=Depends(get_staff_user)
+        async_db = Depends(get_async_db),
 ):
     params = {'id': obj_id}
     # if not user.is_superuser:
@@ -99,7 +99,7 @@ async def update_order(
 )
 async def set_order_deleted_at(
         obj_id: UUID,
-        async_db: AsyncSession = Depends(get_async_db),
+        async_db = Depends(get_async_db),
 ):
     order_repo.raw_update(
         async_db, expressions=[Order.id == obj_id], obj_in={"deleted_at": now()}
@@ -109,24 +109,27 @@ async def set_order_deleted_at(
 @api.get('/my/list/', name="order-my-list", response_model=IPaginationDataBase[OrderVisible])
 async def get_my_orders_list(
         user=Depends(get_current_user),
-        async_db: AsyncSession = Depends(get_async_db),
+        async_db = Depends(get_async_db),
         commons: CommonsModel = Depends(get_commons),
         order_by: Optional[Literal[
             "created_at", "-created_at"
         ]] = "-created_at",
+        code: Optional[str] = Query(None, max_length=50),
         status: Optional[OrderStatusChoices] = None
-
 ):
     q = {"user_id": user.id, "deleted_at": None}
     if status:
         q['status'] = status
+    expressions = None
+    if code:
+        expressions = (Order.code.ilike(f'%{code}%'),)
     obj_list = await order_repo.get_all(
         async_db=async_db,
         limit=commons.limit,
         offset=commons.offset,
         order_by=(order_by,),
         q=q,
-        # expressions=expressions
+        expressions=expressions
     )
     return {
         'page': commons.page,
@@ -138,7 +141,7 @@ async def get_my_orders_list(
 @api.get('/my/count/', name="order-my-count", response_model=int)
 async def get_my_orders_count(
         user=Depends(get_current_user),
-        async_db: AsyncSession = Depends(get_async_db),
+        async_db = Depends(get_async_db),
         status: Optional[OrderStatusChoices] = None
 ):
     params = {"user_id": user.id, "deleted_at": None}
@@ -161,7 +164,7 @@ async def get_my_orders_count(
 async def create_my_order(
         obj_in: OrderCreate,
         user=Depends(get_active_user),
-        async_db: AsyncSession = Depends(get_async_db),
+        async_db = Depends(get_async_db),
 
 ):
     data = {
@@ -192,7 +195,7 @@ async def create_my_order(
 )
 async def get_my_order_detail(
         obj_id: UUID,
-        async_db: AsyncSession = Depends(get_async_db),
+        async_db = Depends(get_async_db),
         user=Depends(get_current_user)
 
 ):
@@ -205,7 +208,7 @@ async def get_my_order_detail(
 )
 async def get_my_order_detail(
         obj_id: UUID,
-        async_db: AsyncSession = Depends(get_async_db),
+        async_db = Depends(get_async_db),
         user=Depends(get_current_user)
 ):
     db_obj = await order_repo.get_by_params(async_db, params={"id": obj_id, "user_id": user.id, "deleted_at": None})

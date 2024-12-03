@@ -35,10 +35,11 @@ class UserSession(UUIDBase, CreationModificationDateBase):
         SUUID(as_uuid=True),
         ForeignKey('user.id', ondelete='CASCADE', name='fx_session_user_id')
     )
+    expire_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     revoked_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     user_agent: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     ip_address: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-
+    firebase_device_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
 class ExternalAccount(CreationModificationDateBase, ModelWithMetadataBase):
     user_id: Mapped[UUID] = mapped_column(
