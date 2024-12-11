@@ -1,5 +1,5 @@
 from uuid import UUID
-
+from datetime import timedelta
 from typing import Optional, List, Literal
 from pydantic import ValidationError, EmailStr
 
@@ -27,17 +27,17 @@ from app.utils.datetime.timezone import now
 from app.utils.translation import gettext as _
 from app.utils.jose import jwt
 from app.conf.config import settings
+from app.contrib.config.repository import config_repo
 
 from .tasks import send_email_verification_task, send_password_change_verification_task, send_reset_password_email_task
 from .schema import (
     Token, UserVisible, UserBase, UserCreate,
     SignUpResult, SignUpIn, ProfilePasswordIn, TokenPayload, UserSessionVisible,
-    VerifyToken, ProfileChangeEmail, ResetPassword, AuthPhone, PhoneVerify
+    VerifyToken, ProfileChangeEmail, ResetPassword, AuthPhone, PhoneVerify, PasswordIn
 )
 from .models import User
 from .repository import user_repo, user_session_repo, external_account_repo
 from .utils import rand_code
-from ..config.repository import config_repo
 
 api = APIRouter()
 
@@ -47,6 +47,20 @@ sso = GoogleSSO(
     redirect_uri=settings.GOOGLE_REDIRECT_URI,
     allow_insecure_http=True,
 )
+
+
+async def change_password(async_db, user, obj_in):
+    check_pass = user_repo.verify_password(user, obj_in.old_password)
+    if not check_pass:
+        raise RequestValidationError(
+            [ErrorDetails(
+                msg="Invalid current password",
+                loc=("body", "oldPassword",),
+                type='value_error',
+                input=obj_in.old_password
+            )]
+        )
+    await user_repo.raw_update(async_db, expressions=(User.id == user.id,), obj_in={"password": obj_in.password})
 
 
 async def create_verification_code(
@@ -113,10 +127,16 @@ async def revoke_session(async_db, db_obj, aioredis_instance):
 
 
 async def generate_auth_token(async_db, request, user):
+    iat = now()
+    expire_delta= timedelta(minutes=lazy_jwt_settings.JWT_EXPIRATION_MINUTES)
+    expire_at = iat + expire_delta
+
     data = {
         "ip_address": request.client.host,
         "user_agent": request.headers.get("User-Agent"),
+        "firebase_device_id": request.headers.get("Firebase-Device-ID"),
         "user_id": user.id,
+        "expire_at": expire_at,
     }
     session = await user_session_repo.create(async_db=async_db, obj_in=data)
 
@@ -127,6 +147,8 @@ async def generate_auth_token(async_db, request, user):
             'aud': lazy_jwt_settings.JWT_AUDIENCE,
             'jti': session.id.hex
         },
+        iat=iat,
+        expire_delta=expire_delta
     )
     jwt_token = lazy_jwt_settings.JWT_ENCODE_HANDLER(payload)
 
@@ -251,12 +273,19 @@ async def get_user_sessions(
         user: "User" = Depends(get_current_user),
         async_db: AsyncSession = Depends(get_async_db),
 ):
-    obj_list = await user_session_repo.get_all(
-        async_db,
-        q={
+    if user.is_superuser or user.is_staff:
+        q = {
+            "user_id": user.id,
+        }
+    else:
+        q = {
             "user_id": user.id,
             "revoked_at": None
         }
+    obj_list = await user_session_repo.get_all(
+        async_db,
+        q=q,
+        order_by=('-revoked_at',),
     )
     return obj_list
 
@@ -266,12 +295,13 @@ async def revoke_all_sessions(
         token_payload: TokenPayload = Depends(get_token_payload),
         async_db: AsyncSession = Depends(get_async_db),
         aioredis_instance=Depends(get_aioredis),
-
 ):
     expressions = [
         user_session_repo.model.id != token_payload.jti
     ]
-    obj_list = await user_session_repo.get_all(async_db, q={"revoked_at": None}, offset=0, expressions=expressions)
+    obj_list = await user_session_repo.get_all(
+        async_db, q={"revoked_at": None}, offset=0, expressions=expressions
+    )
     for user_session in obj_list:
         await revoke_session(async_db, user_session, aioredis_instance)
 
@@ -779,6 +809,22 @@ async def user_profile_update(
     }
 
 
+@api.post('/staff/change-password/', name='staff-change-password', response_model=IResponseBase[str])
+async def staff_user_change_password(
+
+        obj_in: PasswordIn,
+        user: User = Depends(get_staff_user),
+        async_db: AsyncSession = Depends(get_async_db),
+
+):
+    await change_password(async_db, user, obj_in)
+
+    return {
+        "message": "Password changed",
+        "data": ""
+    }
+
+
 @api.post("/profile/change-password/", name="user-profile-change-password", response_model=IResponseBase[str])
 async def user_profile_password_change(
         obj_in: ProfilePasswordIn,
@@ -792,18 +838,7 @@ async def user_profile_password_change(
         key=f'{user.email}-{ServiceTypeChoices.email.value}-password',
         code=obj_in.code,
     )
-
-    check_pass = user_repo.verify_password(user, obj_in.old_password)
-    if not check_pass:
-        raise RequestValidationError(
-            [ErrorDetails(
-                msg="Invalid current password",
-                loc=("body", "oldPassword",),
-                type='value_error',
-                input=obj_in.old_password
-            )]
-        )
-    await user_repo.raw_update(async_db, expressions=(User.id == user.id,), obj_in={"password": obj_in.password})
+    await change_password(async_db, user, obj_in)
 
     return {
         "message": "Password changed!",
@@ -871,7 +906,6 @@ async def change_profile_email(
         user: User = Depends(get_current_user),
         aioredis_instance=Depends(get_aioredis),
         redis_instance=Depends(get_redis),
-
 ):
     if user.email is None:
         raise HTTPException(status_code=400, detail=_("Sorry, you do not have verified email yet"))

@@ -46,7 +46,7 @@ def upgrade() -> None:
         sa.Column('private_metadata', sa.JSON(), nullable=False),
         sa.Column('public_metadata', sa.JSON(), nullable=False),
         sa.Column('id', sa.UUID(), nullable=False),
-        sa.ForeignKeyConstraint(['user_id'], ['user.id'], name='fx_order_user_id', ondelete='CASCADE'),
+        sa.ForeignKeyConstraint(['user_id'], ['user.id'], name='fx_order_user_id', ondelete='RESTRICT'),
         sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_order_id'), 'order', ['id'], unique=True)
@@ -63,8 +63,8 @@ def upgrade() -> None:
         sa.Column('private_metadata', sa.JSON(), nullable=False),
         sa.Column('public_metadata', sa.JSON(), nullable=False),
         sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-        sa.ForeignKeyConstraint(['order_id'], ['order.id'], name='fx_invoice_order_id', ondelete='CASCADE'),
-        sa.ForeignKeyConstraint(['user_id'], ['user.id'], name='fx_invoice_user_id', ondelete='CASCADE'),
+        sa.ForeignKeyConstraint(['order_id'], ['order.id'], name='fx_invoice_order_id', ondelete='RESTRICT'),
+        sa.ForeignKeyConstraint(['user_id'], ['user.id'], name='fx_invoice_user_id', ondelete='RESTRICT'),
         sa.PrimaryKeyConstraint('id')
     )
     op.create_table(

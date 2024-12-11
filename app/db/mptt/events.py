@@ -156,6 +156,7 @@ def mptt_before_update(mapper, connection, instance):
     """ Based on this example:
         http://stackoverflow.com/questions/889527/move-node-in-nested-set
     """
+    print("mptt_before_update", "111111")
     node_id = getattr(instance, instance.get_pk_name())
     table = _get_tree_table(mapper)
     db_pk = instance.get_pk_column()
@@ -242,6 +243,7 @@ def mptt_before_update(mapper, connection, instance):
             'rgt': left_sibling_right,
             'is_parent': False
         }
+    print("mptt_before_update", "222222")
 
     """ Get subtree from node
         SELECT id, name, level FROM my_tree
@@ -280,6 +282,7 @@ def mptt_before_update(mapper, connection, instance):
             table.c.level
         ).where(table_pk == node_id)
     ).fetchone()
+    print("mptt_before_update", "333333")
 
     # if instance just update w/o move
     # XXX why this str() around parent_id comparison?
@@ -288,33 +291,35 @@ def mptt_before_update(mapper, connection, instance):
             and not mptt_move_inside:
         if left_sibling_tree_id is None:
             return
+    print("mptt_before_update", "444444")
 
     # fix tree shorting
-    if instance.parent_id is not None:
-        (
-            parent_id,
-            parent_pos_right,
-            parent_pos_left,
-            parent_tree_id,
-            parent_level
-        ) = connection.execute(
-            select(
-                table_pk,
-                table.c.rgt,
-                table.c.lft,
-                table.c.tree_id,
-                table.c.level
-            ).where(
-                table_pk == instance.parent_id
-            )
-        ).fetchone()
-        if node_parent_id is None and node_tree_id == parent_tree_id:
-            instance.parent_id = None
-            return
+    # if instance.parent_id is not None:
+    #     (
+    #         parent_id,
+    #         parent_pos_right,
+    #         parent_pos_left,
+    #         parent_tree_id,
+    #         parent_level
+    #     ) = connection.execute(
+    #         select(
+    #             table_pk,
+    #             table.c.rgt,
+    #             table.c.lft,
+    #             table.c.tree_id,
+    #             table.c.level
+    #         ).where(
+    #             table_pk == instance.parent_id
+    #         )
+    #     ).fetchone()
+    #     print("node_parent_id", node_parent_id, parent_tree_id)
+    #     if node_parent_id is None and node_tree_id == parent_tree_id:
+    #         instance.parent_id = None
+    #         return
 
     # delete from old tree
     mptt_before_delete(mapper, connection, instance, False)
-
+    print('instance.parent_id is not None', instance.parent_id)
     if instance.parent_id is not None:
         """ Put there right position of new parent node (there moving node
             should be moved)
@@ -479,6 +484,9 @@ class TreesManager(object):
         mptt_before_insert(mapper, connection, instance)
 
     def before_update(self, mapper, connection, instance):
+        print(instance.id, "before_update")
+        print(instance.slug, "before_update")
+        print(instance.parent_id, "before_update")
         session = object_session(instance)
         self.instances[session].add(instance)
         mptt_before_update(mapper, connection, instance)

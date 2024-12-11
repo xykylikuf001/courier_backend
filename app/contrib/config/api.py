@@ -1,3 +1,5 @@
+
+
 from typing import Optional, Literal
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -6,15 +8,17 @@ from pydantic_core import ErrorDetails
 from starlette.status import HTTP_400_BAD_REQUEST
 from sqlalchemy.orm import joinedload, selectinload
 
-from app.routers.dependency import get_active_user, get_async_db, get_commons
+from app.routers.dependency import get_active_user, get_async_db, get_commons, get_locale
 from app.core.schema import IResponseBase, IPaginationDataBase, CommonsModel
 from app.utils.translation import gettext as _
 from app.core.exceptions import HTTP404
 from app.conf.config import settings
 
 from .schema import (
-    ConfigCreate, ConfigVisible, ConfigVisiblePublic,
-    ConfigTranslationVisible, ConfigTranslationCreate, ConfigTranslationBase,
+    ConfigCreate,
+    ConfigVisible, ConfigVisiblePublic,
+    ConfigTranslationVisible,
+    ConfigTranslationCreate, ConfigTranslationBase,
 )
 from .repository import config_repo, config_tr_repo
 from .models import Config, ConfigTranslation
@@ -35,11 +39,6 @@ async def config_detail(
     return db_obj
 
 
-@api.get('/system/', name='system-detail', response_model=dict,
-         dependencies=[Depends(get_active_user)])
-async def system_detail(
-):
-    return {}
 
 
 @api.post(
@@ -187,11 +186,11 @@ async def delete_config_translation(
 
 @api.get("/public/", name='config-public', response_model=ConfigVisiblePublic)
 async def get_public_config(
-        lang: str,
+        locale: Optional[str] = Depends(get_locale),
         async_db=Depends(get_async_db),
 ):
     options = [
-        joinedload(Config.current_translation.and_(ConfigTranslation.locale == lang), innerjoin=True)
+        joinedload(Config.current_translation.and_(ConfigTranslation.locale == locale), innerjoin=True)
     ]
     config = await config_repo.first(async_db, options=options)
     if not config:

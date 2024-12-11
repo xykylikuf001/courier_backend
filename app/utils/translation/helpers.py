@@ -66,7 +66,6 @@ class HeaderLocale(BaseLocaleCode):
     def code(self) -> t.Optional[str]:
         max_weight = 0.0
         locale_code = None
-
         language_header = self.request.headers.get(self.name)
         if not language_header:
             return locale_code

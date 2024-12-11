@@ -16,6 +16,4 @@ class ThumbnailCropChoices(TextChoices):
 
 
 class ContentTypeChoices(TextChoices):
-    gallery = "gallery"
-    payment = "payment"
-    user = "user"
+    slider = "slider"

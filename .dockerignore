@@ -1,3 +1,6 @@
 .venv
 .gitingore
 *.json
+release
+media
+static

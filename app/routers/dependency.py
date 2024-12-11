@@ -16,6 +16,7 @@ from app.core.schema import CommonsModel
 from app.utils.jose import jwt
 from app.db.session import AsyncSessionLocal, SessionLocal
 from app.conf import LanguagesChoices
+from app.utils.translation import get_locale_code
 
 # from app.utils.translation import gettext as _
 reusable_oauth2 = OAuth2PasswordBearerWithCookie(tokenUrl=f'{settings.API_V1_STR}/auth/get-token/', auto_error=False)
@@ -154,5 +155,7 @@ async def get_commons(
     )
 
 
-def get_language(lang: Optional[LanguagesChoices] = None):
-    return lang
+def get_locale(locale: Optional[LanguagesChoices] = None):
+    if locale is None:
+        return get_locale_code()
+    return locale

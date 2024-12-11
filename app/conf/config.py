@@ -9,7 +9,6 @@ class Settings(BaseSettings):
     BASE_DIR: Optional[str] = Path(__file__).resolve().parent.parent.parent.as_posix()
     PROJECT_DIR: Optional[str] = Path(__file__).resolve().parent.parent.as_posix()
     # Project
-    VERSION: Optional[str] = '0.1.0'
     DEBUG: Optional[bool] = False
     PAGINATION_MAX_SIZE: Optional[int] = 25
 
@@ -100,7 +99,7 @@ class Settings(BaseSettings):
     FIRST_SUPERUSER_EMAIL: Optional[str] = 'admin@example.com'
     FIRST_SUPERUSER_PASSWORD: Optional[str] = 'change_this'
 
-    DEFAULT_CURRENCY: Optional[str] = "USD"
+    DEFAULT_CURRENCY: Optional[str] = "TMT"
 
     LOCALE_PATH: Optional[str] = 'app/locale'
     USE_I18N: Optional[bool] = True
@@ -108,8 +107,8 @@ class Settings(BaseSettings):
     LANGUAGE_COOKIE: Optional[str] = "Language"
     TIME_ZONE: Optional[str] = 'Asia/Ashgabat'
     USE_TZ: Optional[bool] = True
-    LANGUAGES: tuple = ("en", "ru",)
-    LANGUAGE_CODE: Optional[str] = 'en'
+    LANGUAGES: tuple = (("en", "en"), ("ru", "ru"),("tk", "tk"))
+    LANGUAGE_CODE: Optional[str] = 'tk'
     LANGUAGE_CODE_LENGTH: Optional[int] = 5
 
     model_config = SettingsConfigDict(

@@ -11,6 +11,7 @@ from app.db.mptt import BaseNestedSets
 
 class Place(SlugBase, BaseNestedSets):
     id = Column(Integer, primary_key=True, autoincrement=True, nullable=False)
+    parent_id = Column(Integer, ForeignKey("place.id", ondelete="CASCADE"), nullable=True)
 
     location_level: Mapped[PlaceLevelChoices] = mapped_column(
         ChoiceType(choices=PlaceLevelChoices, impl=String(8)), nullable=False
@@ -42,6 +43,10 @@ class Place(SlugBase, BaseNestedSets):
         # path_to_root = self.path_to_root()
         # return ', '.join([f'{place.name} {place.location_level.label}' for place in path_to_root])
         return f'{self.name} {self.location_level.label}'
+
+    @hybrid_property
+    def locale(self):
+        return self.current_translation.locale
 
 
 class PlaceTranslation(Base):

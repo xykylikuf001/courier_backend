@@ -39,10 +39,11 @@ IMPORT_STRINGS = (
 )
 
 
-def jwt_payload(data: dict, expires_delta: Optional[timedelta] = None) -> dict:
-    iat = datetime.utcnow()
-    if expires_delta:
-        expire = iat + expires_delta
+def jwt_payload(data: dict, iat: Optional[datetime] = None, expire_delta: Optional[timedelta] = None) -> dict:
+    if iat is None:
+        iat = datetime.now()
+    if expire_delta:
+        expire = iat + expire_delta
     else:
         expire = iat + timedelta(minutes=jwt_settings.JWT_EXPIRATION_MINUTES)
     payload = data.copy()

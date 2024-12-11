@@ -6,6 +6,7 @@ from app.contrib.file.api import api as file_api
 from app.contrib.message.api import api as message_api
 from app.contrib.order.api import api as order_api
 from app.contrib.config.api import api as config_api
+
 api = APIRouter()
 
 api.include_router(account_api, tags=["account"])
