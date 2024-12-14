@@ -200,7 +200,7 @@ class UserSession(BaseModel):
     phone: Optional[str] = None
     created_at: datetime = Field(alias="createdAt")
     email_verified_at: Optional[datetime] = Field(alias="emailVerifiedAt")
-    phone_verified_at: Optional[datetime] = Field(alias="emailVerifiedAt")
+    phone_verified_at: Optional[datetime] = Field(alias="phoneVerifiedAt")
 
 
 class ExternalAccountVisible(BaseModel):

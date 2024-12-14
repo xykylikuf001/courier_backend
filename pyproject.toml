@@ -6,7 +6,7 @@ authors = ["Your Name <you@example.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = "^3.12"
 bcrypt = "4.0.1"
 cryptography = "^42.0.8"
 alembic = "^1.14.0"
@@ -36,16 +36,15 @@ passlib = "^1.7.4"
 python-multipart = "^0.0.17"
 redis = "^5.2.0"
 pillow = "^11.0.0"
-
 python-magic = { version = "^0.4.27", markers = "sys_platform == 'linux'" }
 python-magic-bin = { version = "*", markers = "sys_platform == 'win32'" }
-
 celery = "^5.4.0"
 flower = "^2.0.1"
 fastapi-sso = "^0.17.0"
 phonenumbers = "^8.13.50"
 gunicorn = "^23.0.0"
 psutil = "^6.1.0"
+pyfcm = "^2.0.7"
 
 [build-system]
 requires = ["poetry-core"]

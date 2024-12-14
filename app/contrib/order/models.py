@@ -1,73 +1,272 @@
 from typing import Optional
-from uuid import UUID, uuid4
+from uuid import UUID
 from decimal import Decimal
 from datetime import datetime
 
 from sqlalchemy_utils import ChoiceType
-from sqlalchemy import String, ForeignKey, Text, DECIMAL, DateTime
+from sqlalchemy import (
+    String, ForeignKey, Text, DECIMAL, DateTime, select, Sequence, Integer, JSON, Boolean
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID as SUUID
 
-from app.db.models import CreationModificationDateBase, ModelWithMetadataBase, UUIDBase
-from app.contrib.order import OrderStatusChoices, ShippingTypeChoices
+from app.conf import LanguagesChoices
+from app.db.session import SessionLocal
+from app.db.models import CreationModificationDateBase, ModelWithMetadataBase, UUIDBase, metadata, Base
+from app.contrib.order import (
+    OrderStatusChoices, ShippingMethodChoices, OrderEventChoices,
+    OrderChargeStatusChoices, OrderGrantedRefundStatusChoices, OrderOriginChoices, FulfillmentStatusChoices
+)
+
+order_code_seq = Sequence('order_order_number_seq', metadata=metadata)
 
 
 def generate_order_code() -> str:
     """
     Generates a unique order code in hexadecimal format.
     """
-    return uuid4().hex.upper()
+
+    with SessionLocal() as session:
+        # Fetch the next value from the sequence
+        next_code = session.execute(select(order_code_seq.next_value())).scalar()
+        return f"ORD-{next_code:06}"  # Example format: ORD-000001
 
 
 class Order(CreationModificationDateBase, ModelWithMetadataBase, UUIDBase):
-    code: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, default=generate_order_code)
+    code: Mapped[Optional[str]] = mapped_column(
+        String(255), unique=True, nullable=False, default=generate_order_code,
+    )
     status: Mapped[OrderStatusChoices] = mapped_column(
-        ChoiceType(choices=OrderStatusChoices, impl=String(50)),
+        ChoiceType(choices=OrderStatusChoices, impl=String(32)),
         nullable=False,
-        default=OrderStatusChoices.pending
+        default=OrderStatusChoices.unconfirmed
+    )
+    charge_status: Mapped[OrderChargeStatusChoices] = mapped_column(
+        ChoiceType(choices=OrderChargeStatusChoices, impl=String(32)),
+        default=OrderChargeStatusChoices.none, nullable=False
     )
 
     user_id: Mapped[UUID] = mapped_column(
         SUUID(as_uuid=True),
-        ForeignKey('user.id', ondelete='RESTRICT', name='fx_order_user_id'),
-        nullable=False,
+        ForeignKey('user.id', ondelete='SET NULL', name='fx_order_user_id'),
+        nullable=True,
     )
-    sender_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    sender_phone: Mapped[str] = mapped_column(String(255), nullable=False)
-    billing_address: Mapped[str] = mapped_column(Text, nullable=False)
+    language_code: Mapped[LanguagesChoices] = mapped_column(
+        ChoiceType(choices=LanguagesChoices, impl=String(35)),
+        default=LanguagesChoices.TURKMEN
+    )
+    name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    phone: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    street_address: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    place_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("place.id", name='fx_order_place_id', ondelete="SET NULL")
+    )
+    place_full_name: Mapped[dict] = mapped_column(JSON, default={}, nullable=False)
 
-    shipping_address: Mapped[int] = mapped_column(Text, nullable=False)
-    receiver_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    receiver_phone: Mapped[str] = mapped_column(String(255), nullable=False)
-    weight: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    price: Mapped[Optional[Decimal]] = mapped_column(
-        DECIMAL(precision=12, scale=2, asdecimal=True), nullable=True
-    )
-    shipping_amount: Mapped[Decimal] = mapped_column(
-        DECIMAL(precision=12, scale=2, asdecimal=True), nullable=True,
-    )
-    shipping_type: Mapped[ShippingTypeChoices] = mapped_column(
-        ChoiceType(choices=ShippingTypeChoices, impl=String(20)),
+    user_email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, default="")
+    origin: Mapped[OrderOriginChoices] = mapped_column(
+        ChoiceType(choices=OrderOriginChoices, impl=String(32)),
         nullable=False
     )
+    currency: Mapped[str] = mapped_column(String(50), nullable=False)
+    shipping_method: Mapped[ShippingMethodChoices] = mapped_column(
+        ChoiceType(choices=ShippingMethodChoices, impl=String(20)),
+        nullable=False
+    )
+    shipping_price_net_amount: Mapped[Decimal] = mapped_column(
+        DECIMAL(precision=12, scale=2, asdecimal=True),
+        default=Decimal('0.0'),
+        nullable=False
+    )
+    shipping_price_gross_amount: Mapped[Decimal] = mapped_column(
+        DECIMAL(precision=12, scale=2, asdecimal=True),
+        default=Decimal('0.0'),
+        nullable=False
+    )
+    # Shipping price with applied shipping voucher discount, without tax
+    base_shipping_price_amount: Mapped[Decimal] = mapped_column(
+        DECIMAL(precision=12, scale=2, asdecimal=True),
+        default=Decimal('0.0'),
+        nullable=False
+    )
+    shipping_tax_rate: Mapped[Decimal] = mapped_column(
+        DECIMAL(precision=5, scale=4, asdecimal=True),
+        nullable=True
+    )
+    total_net_amount: Mapped[Decimal] = mapped_column(
+        DECIMAL(precision=12, scale=2, asdecimal=True),
+        default=Decimal('0.0'),
+        nullable=False
+    )
+
+    total_gross_amount: Mapped[Decimal] = mapped_column(
+        DECIMAL(precision=12, scale=2, asdecimal=True),
+        default=Decimal('0.0'),
+        nullable=False
+    )
+    total_charged_amount: Mapped[Decimal] = mapped_column(
+        DECIMAL(precision=12, scale=2, asdecimal=True),
+        default=Decimal('0.0'),
+        nullable=False
+    )
+    total_authorized_amount: Mapped[Decimal] = mapped_column(
+        DECIMAL(precision=12, scale=2, asdecimal=True),
+        default=Decimal('0.0'),
+        nullable=False
+    )
+    subtotal_net_amount: Mapped[Decimal] = mapped_column(
+        DECIMAL(precision=12, scale=2, asdecimal=True),
+        default=Decimal('0.0'),
+        nullable=False
+    )
+    subtotal_gross_amount: Mapped[Decimal] = mapped_column(
+        DECIMAL(precision=12, scale=2, asdecimal=True),
+        default=Decimal('0.0'),
+        nullable=False
+    )
+
     note: Mapped[str] = mapped_column(Text, nullable=False, default="")
-    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     user = relationship("User", lazy="noload", viewonly=True)
 
-class Invoice(CreationModificationDateBase, ModelWithMetadataBase):
-    user_id: Mapped[UUID] = mapped_column(
-        SUUID(as_uuid=True),
-        ForeignKey('user.id', ondelete='RESTRICT', name='fx_invoice_user_id'),
-        nullable=False,
-    )
+
+class OrderLine(ModelWithMetadataBase):
     order_id: Mapped[UUID] = mapped_column(
         SUUID(as_uuid=True),
-        ForeignKey('order.id', ondelete='RESTRICT', name='fx_order_order_id'),
+        ForeignKey('order.id', ondelete='CASCADE', name='fx_order_line_order_id'),
         nullable=False,
     )
-    billing_address: Mapped[str] = mapped_column(Text, nullable=False)
-    shipping_address: Mapped[str] = mapped_column(Text, nullable=False)
+    currency: Mapped[str] = mapped_column(String(50), nullable=False)
+    extra_amount: Mapped[Decimal] = mapped_column(
+        DECIMAL(precision=12, scale=2, asdecimal=True),
+        default=Decimal('0.0'),
+        nullable=False
+    )
+    total_price_net_amount: Mapped[Decimal] = mapped_column(
+        DECIMAL(precision=12, scale=2, asdecimal=True),
+        nullable=False
+    )
+    total_price_gross_amount: Mapped[Decimal] = mapped_column(
+        DECIMAL(precision=12, scale=2, asdecimal=True),
+        nullable=False
+    )
+    tax_rate: Mapped[Decimal] = mapped_column(
+        DECIMAL(precision=5, scale=4, asdecimal=True),
+        nullable=False
+    )
+    shipping_price_net_amount: Mapped[Decimal] = mapped_column(
+        DECIMAL(precision=12, scale=2, asdecimal=True),
+        default=Decimal('0.0'),
+        nullable=False
+    )
+    shipping_price_gross_amount: Mapped[Decimal] = mapped_column(
+        DECIMAL(precision=12, scale=2, asdecimal=True),
+        default=Decimal('0.0'),
+        nullable=False
+    )
+    price: Mapped[Decimal] = mapped_column(
+        DECIMAL(precision=12, scale=2, asdecimal=True),
+        default=Decimal('0.0'),
+        nullable=False
+    )
+    note: Mapped[str] = mapped_column(Text, nullable=True)
+
+
+class Fulfillment(CreationModificationDateBase, ModelWithMetadataBase):
+    fulfillment_order: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    order_id: Mapped[UUID] = mapped_column(
+        SUUID(as_uuid=True),
+        ForeignKey('order.id', ondelete='CASCADE', name='fx_fulfillment_order_id'),
+        nullable=False,
+    )
+    status: Mapped[FulfillmentStatusChoices] = mapped_column(
+        ChoiceType(choices=FulfillmentStatusChoices, impl=String(32)),
+        default=FulfillmentStatusChoices.fulfilled, nullable=False
+    )
+    shipping_refund_amount: Mapped[Decimal] = mapped_column(
+        DECIMAL(precision=12, scale=2, asdecimal=True),
+        nullable=True
+    )
+    total_refund_amount: Mapped[Decimal] = mapped_column(
+        DECIMAL(precision=12, scale=2, asdecimal=True),
+        nullable=True
+    )
+
+
+class FulfillmentLine(Base):
+    order_line_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey('order_line.id', name='fx_full_line_order_line_id', ondelete="CASCADE"),
+        nullable=False
+    )
+    fulfillment_id: Mapped[UUID] = mapped_column(
+        SUUID(as_uuid=True),
+        ForeignKey('fulfillment.id', ondelete='CASCADE', name='fx_full_line_full_id'),
+        nullable=True,
+    )
+
+
+class OrderEvent(CreationModificationDateBase):
+    """Model used to store events that happened during the order lifecycle.
+
+    Args:
+        parameters: Values needed to display the event on the storefront
+        type: Type of order
+
+    """
+    order_id: Mapped[UUID] = mapped_column(
+        SUUID(as_uuid=True),
+        ForeignKey('order.id', ondelete='CASCADE', name='fx_order_event_order_id'),
+        nullable=False,
+    )
+    user_id: Mapped[UUID] = mapped_column(
+        SUUID(as_uuid=True),
+        ForeignKey('user.id', ondelete='SET NULL', name='fx_order_event_user_id'),
+        nullable=True,
+    )
+    event_type: Mapped[OrderEventChoices] = ChoiceType(
+        choices=OrderEventChoices, impl=String(255),
+    )
+    parameters: Mapped[dict] = mapped_column(JSON, default={}, nullable=False)
+
+
+class OrderGrantedRefund(CreationModificationDateBase):
+    amount_value: Mapped[Decimal] = mapped_column(
+        DECIMAL(precision=12, scale=2, asdecimal=True),
+        nullable=True, default=Decimal("0.0")
+    )
+    currency: Mapped[str] = mapped_column(String(50), nullable=False)
+    reason: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    user_id: Mapped[UUID] = mapped_column(
+        SUUID(as_uuid=True),
+        ForeignKey('user.id', ondelete='SET NULL', name='fx_order_gr_user_id'),
+        nullable=True,
+    )
+
+    order_id: Mapped[UUID] = mapped_column(
+        SUUID(as_uuid=True),
+        ForeignKey('order.id', ondelete='CASCADE', name='fx_order_gr_order_id'),
+        nullable=False,
+    )
+    shipping_costs_included: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
+    status: Mapped[OrderGrantedRefundStatusChoices] = mapped_column(
+        ChoiceType(choices=OrderGrantedRefundStatusChoices, impl=String(128)),
+        nullable=False, default=OrderGrantedRefundStatusChoices.none
+    )
+
+
+class OrderGrantedRefundLine(Base):
+    order_line_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey('order_line.id', name='fx_order_gr_ln_order_ln_id', ondelete="CASCADE"),
+        nullable=False
+    )
+    granted_refund_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("order_granted_refund.id", name='fx_or_gr_ln_or_gr_id', ondelete="CASCADE")
+    )
+    reason: Mapped[str] = mapped_column(Text, default="", nullable=False)
 
 
 class OrderNote(CreationModificationDateBase):
@@ -80,6 +279,6 @@ class OrderNote(CreationModificationDateBase):
     )
     user_id: Mapped[UUID] = mapped_column(
         SUUID(as_uuid=True),
-        ForeignKey('user.id', ondelete='CASCADE', name='fx_order_note_user_id'),
-        nullable=False,
+        ForeignKey('user.id', ondelete='SET NULL', name='fx_order_note_user_id'),
+        nullable=True,
     )

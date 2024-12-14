@@ -12,7 +12,7 @@ from app.contrib.account.models import User
 from app.contrib.order import OrderStatusChoices
 
 from .repository import order_repo
-from .schema import OrderVisible, OrderCreate, OrderBase
+from .schema import OrderVisible, OrderCheckout, OrderLineCheckout
 from .models import Order
 
 api = APIRouter()
@@ -23,7 +23,7 @@ api = APIRouter()
     dependencies=[Depends(get_staff_user)]
 )
 async def get_order_list(
-        async_db = Depends(get_async_db),
+        async_db=Depends(get_async_db),
         commons: CommonsModel = Depends(get_commons),
         order_by: Optional[Literal[
             "created_at", "-created_at"
@@ -49,7 +49,7 @@ async def get_order_list(
     dependencies=[Depends(get_staff_user)]
 )
 async def count_orders(
-        async_db = Depends(get_async_db)
+        async_db=Depends(get_async_db)
 ):
     return await order_repo.count(async_db)
 
@@ -62,54 +62,54 @@ async def count_orders(
 )
 async def get_single_order(
         obj_id: UUID,
-        async_db = Depends(get_async_db),
+        async_db=Depends(get_async_db),
 ):
     options = [joinedload(Order.user).load_only(User.id, User.name)]
     db_obj = await order_repo.get(obj_id=obj_id, async_db=async_db, options=options)
     return db_obj
 
 
-@api.post(
-    '/{obj_id}/update/', name='order-update', response_model=IResponseBase[OrderVisible],
-    dependencies=[Depends(get_staff_user)]
-)
-async def update_order(
-        obj_id: UUID,
-        obj_in: OrderBase,
-        async_db = Depends(get_async_db),
-):
-    params = {'id': obj_id}
-    # if not user.is_superuser:
-    #     params["deleted_at"] = None
+# @api.post(
+#     '/{obj_id}/update/', name='order-update', response_model=IResponseBase[OrderVisible],
+#     dependencies=[Depends(get_staff_user)]
+# )
+# async def update_order(
+#         obj_id: UUID,
+#         obj_in: OrderCheckout,
+#         async_db=Depends(get_async_db),
+# ):
+#     params = {'id': obj_id}
+#     # if not user.is_superuser:
+#     #     params["deleted_at"] = None
+#
+#     db_obj = await order_repo.get_by_params(async_db, params=params)
+#     result = await order_repo.update(
+#         async_db, db_obj=db_obj, obj_in=obj_in.model_dump()
+#     )
+#     return {
+#         "message": _("Order status changed"),
+#         "data": result
+#     }
 
-    db_obj = await order_repo.get_by_params(async_db, params=params)
-    result = await order_repo.update(
-        async_db, db_obj=db_obj, obj_in=obj_in.model_dump()
-    )
-    return {
-        "message": _("Order status changed"),
-        "data": result
-    }
 
-
-@api.delete(
-    '/{obj_id}/delete/', name='order-delete',
-    response_model=IResponseBase[OrderVisible],
-    dependencies=[Depends(get_staff_user)]
-)
-async def set_order_deleted_at(
-        obj_id: UUID,
-        async_db = Depends(get_async_db),
-):
-    order_repo.raw_update(
-        async_db, expressions=[Order.id == obj_id], obj_in={"deleted_at": now()}
-    )
+# @api.delete(
+#     '/{obj_id}/delete/', name='order-delete',
+#     response_model=IResponseBase[OrderVisible],
+#     dependencies=[Depends(get_staff_user)]
+# )
+# async def set_order_deleted_at(
+#         obj_id: UUID,
+#         async_db=Depends(get_async_db),
+# ):
+#     order_repo.raw_update(
+#         async_db, expressions=[Order.id == obj_id], obj_in={"deleted_at": now()}
+#     )
 
 
 @api.get('/my/list/', name="order-my-list", response_model=IPaginationDataBase[OrderVisible])
 async def get_my_orders_list(
         user=Depends(get_current_user),
-        async_db = Depends(get_async_db),
+        async_db=Depends(get_async_db),
         commons: CommonsModel = Depends(get_commons),
         order_by: Optional[Literal[
             "created_at", "-created_at"
@@ -141,7 +141,7 @@ async def get_my_orders_list(
 @api.get('/my/count/', name="order-my-count", response_model=int)
 async def get_my_orders_count(
         user=Depends(get_current_user),
-        async_db = Depends(get_async_db),
+        async_db=Depends(get_async_db),
         status: Optional[OrderStatusChoices] = None
 ):
     params = {"user_id": user.id, "deleted_at": None}
@@ -158,34 +158,34 @@ async def get_my_orders_count(
 @api.post(
     "/my/create/",
     name="order-my-create",
-    response_model=IResponseBase[OrderVisible],
-    status_code=201,
+    response_model=IResponseBase[str],
+    # status_code=201,
 )
 async def create_my_order(
-        obj_in: OrderCreate,
+        obj_in: OrderCheckout,
         user=Depends(get_active_user),
-        async_db = Depends(get_async_db),
-
+        async_db=Depends(get_async_db),
 ):
-    data = {
-        "user_id": user.id,
-        "sender_name": obj_in.sender_name,
-        "sender_phone": obj_in.sender_phone,
-        "billing_address": obj_in.billing_address,
-        "shipping_address": obj_in.shipping_address,
-        "receiver_name": obj_in.receiver_name,
-        "receiver_phone": obj_in.receiver_phone,
-        "price": obj_in.price,
-        "weight": obj_in.weight,
-        "note": obj_in.note,
-        "shipping_type": obj_in.shipping_type
-    }
-    result = await order_repo.create(
-        async_db, obj_in=data
-    )
+    # data = {
+    #     "user_id": user.id,
+    #     "sender_name": obj_in.sender_name,
+    #     "sender_phone": obj_in.sender_phone,
+    #     "billing_address": obj_in.billing_address,
+    #     "shipping_address": obj_in.shipping_address,
+    #     "receiver_name": obj_in.receiver_name,
+    #     "receiver_phone": obj_in.receiver_phone,
+    #     "price": obj_in.price,
+    #     "weight": obj_in.weight,
+    #     "note": obj_in.note,
+    #     "shipping_type": obj_in.shipping_type
+    # }
+    # result = await order_repo.create(
+    #     async_db, obj_in=data
+    # )
     return {
         "message": _("Order successfully created"),
-        "data": result
+        # "data": result
+        "data": ""
     }
 
 
@@ -195,7 +195,7 @@ async def create_my_order(
 )
 async def get_my_order_detail(
         obj_id: UUID,
-        async_db = Depends(get_async_db),
+        async_db=Depends(get_async_db),
         user=Depends(get_current_user)
 
 ):
@@ -208,7 +208,7 @@ async def get_my_order_detail(
 )
 async def get_my_order_detail(
         obj_id: UUID,
-        async_db = Depends(get_async_db),
+        async_db=Depends(get_async_db),
         user=Depends(get_current_user)
 ):
     db_obj = await order_repo.get_by_params(async_db, params={"id": obj_id, "user_id": user.id, "deleted_at": None})

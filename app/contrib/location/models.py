@@ -16,7 +16,7 @@ class Place(SlugBase, BaseNestedSets):
     location_level: Mapped[PlaceLevelChoices] = mapped_column(
         ChoiceType(choices=PlaceLevelChoices, impl=String(8)), nullable=False
     )
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     translations = relationship(
         "PlaceTranslation",
