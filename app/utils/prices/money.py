@@ -2,9 +2,7 @@ from __future__ import division, unicode_literals
 
 import warnings
 from decimal import ROUND_HALF_UP, Decimal
-from typing import Union, overload
-
-from babel.numbers import get_currency_precision
+from typing import Union, overload, Optional
 
 Numeric = Union[int, Decimal]
 
@@ -14,13 +12,16 @@ class Money:
 
     __slots__ = ('amount', 'currency')
 
-    def __init__(self, amount: Numeric, currency: str) -> None:
+    def __init__(self, amount: Optional[Numeric], currency: str, null_safe: Optional[bool] = True) -> None:
         if isinstance(amount, float):
             warnings.warn(  # pragma: no cover
                 RuntimeWarning(
                     'float passed as value to Money, consider using Decimal'),
                 stacklevel=2)
-        self.amount = Decimal(amount)
+        if amount is None and null_safe:
+            self.amount = Decimal("0.0")
+        else:
+            self.amount = Decimal(amount)
         self.currency = currency
 
     def __repr__(self) -> str:

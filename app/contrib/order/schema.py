@@ -40,6 +40,7 @@ class OrderLineCheckout(BaseModel):
     name: str = Field(..., alias="name", max_length=255)
     phone: str = Field(..., alias="phone", max_length=255)
     price: Optional[condecimal(decimal_places=2, max_digits=12)] = None
+    note: Optional[str] = Field(None, max_length=500)
 
 
 class OrderCheckout(BaseModel):
@@ -47,9 +48,9 @@ class OrderCheckout(BaseModel):
     phone: str = Field(..., max_length=255)
     shipping_method: ShippingMethodChoices = Field(..., alias="shippingMethod")
     note: Optional[str] = Field(None, max_length=500)
-
+    street_address: Optional[str] = Field(None, alias="streetAddress", max_length=255)
     save_address: Optional[bool] = Field(False, alias='saveAddress')
-
+    place_id: Optional[int] = Field(None, alias="placeId")
     lines: List[OrderLineCheckout] = Field(..., min_length=1)
 
 

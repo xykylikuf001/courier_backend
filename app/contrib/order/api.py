@@ -1,15 +1,22 @@
 from typing import Optional, Literal
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.exceptions import RequestValidationError
+from pydantic_core import ErrorDetails
 
 from sqlalchemy.orm import joinedload
 
-from app.routers.dependency import get_commons, get_async_db, get_active_user, get_staff_user, get_current_user
+from app.routers.dependency import (
+    get_commons, get_async_db, get_active_user,
+    get_staff_user, get_current_user, get_db,
+    get_locale
+)
 from app.core.schema import CommonsModel, IPaginationDataBase, IResponseBase
 from app.utils.translation import gettext as _
-from app.utils.datetime.timezone import now
 from app.contrib.account.models import User
-from app.contrib.order import OrderStatusChoices
+from app.contrib.order import OrderStatusChoices, OrderOriginChoices
+from app.contrib.location.models import PlaceTranslation, Place
+from app.contrib.location.repository import place_repo_sync
 
 from .repository import order_repo
 from .schema import OrderVisible, OrderCheckout, OrderLineCheckout
@@ -165,28 +172,60 @@ async def create_my_order(
         obj_in: OrderCheckout,
         user=Depends(get_active_user),
         async_db=Depends(get_async_db),
+        db=Depends(get_db),
+        locale: Optional[str] = Depends(get_locale),
 ):
-    # data = {
-    #     "user_id": user.id,
-    #     "sender_name": obj_in.sender_name,
-    #     "sender_phone": obj_in.sender_phone,
-    #     "billing_address": obj_in.billing_address,
-    #     "shipping_address": obj_in.shipping_address,
-    #     "receiver_name": obj_in.receiver_name,
-    #     "receiver_phone": obj_in.receiver_phone,
-    #     "price": obj_in.price,
-    #     "weight": obj_in.weight,
-    #     "note": obj_in.note,
-    #     "shipping_type": obj_in.shipping_type
-    # }
-    # result = await order_repo.create(
-    #     async_db, obj_in=data
-    # )
-    return {
-        "message": _("Order successfully created"),
-        # "data": result
-        "data": ""
+
+    options = joinedload(Place.current_translation.and_(PlaceTranslation.locale == locale))
+    db_place = place_repo_sync.get_by_params(db=db, params={"id": obj_in.place_id}, options=options)
+    if db_place is None:
+        raise RequestValidationError(
+            [ErrorDetails(
+                msg=_("Place does not exist"),
+                loc=("body", "placeId",),
+                type='value_error',
+                input=obj_in.placeId
+            )]
+        )
+    data = {
+        "place_id": obj_in.place_id,
+        "place_full_name": db_place.full_name,
+        "language_code": locale,
+        "user_id": user.id,
+        "name": obj_in.name,
+        "phone": obj_in.phone,
+        "street_address": obj_in.street_address,
+        "user_email": user.email,
+        "origin": OrderOriginChoices.checkout,
+        "shipping_method": obj_in.shipping_method,
+        "note": obj_in.note,
     }
+    try:
+        # data = {
+        #     "user_id": user.id,
+        #     "sender_name": obj_in.sender_name,
+        #     "sender_phone": obj_in.sender_phone,
+        #     "billing_address": obj_in.billing_address,
+        #     "shipping_address": obj_in.shipping_address,
+        #     "receiver_name": obj_in.receiver_name,
+        #     "receiver_phone": obj_in.receiver_phone,
+        #     "price": obj_in.price,
+        #     "weight": obj_in.weight,
+        #     "note": obj_in.note,
+        #     "shipping_type": obj_in.shipping_type
+        # }
+        result = await order_repo.create(
+            async_db, obj_in=data, commit=False, flush=True
+        )
+        return {
+            "message": _("Order successfully created"),
+            "data": result
+        }
+
+    except Exception as e:
+        print(e)
+        db.rollback()
+        raise HTTPException(status_code=500, detail=_("Something went wrong"))
 
 
 @api.get(

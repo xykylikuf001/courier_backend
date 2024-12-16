@@ -47,7 +47,9 @@ class SlugBase(Base):
 
 class CreationModificationDateBase(Base):
     __abstract__ = True
-    created_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(
+        sa.DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
     updated_at: Mapped[Optional[datetime]] = mapped_column(
         sa.DateTime(timezone=True), onupdate=func.now(),
         nullable=True

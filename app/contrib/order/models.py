@@ -8,6 +8,8 @@ from sqlalchemy import (
     String, ForeignKey, Text, DECIMAL, DateTime, select, Sequence, Integer, JSON, Boolean
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.ext.hybrid import hybrid_property
+
 from sqlalchemy.dialects.postgresql import UUID as SUUID
 
 from app.conf import LanguagesChoices
@@ -17,6 +19,7 @@ from app.contrib.order import (
     OrderStatusChoices, ShippingMethodChoices, OrderEventChoices,
     OrderChargeStatusChoices, OrderGrantedRefundStatusChoices, OrderOriginChoices, FulfillmentStatusChoices
 )
+from app.utils.prices import Money
 
 order_code_seq = Sequence('order_order_number_seq', metadata=metadata)
 
@@ -61,7 +64,7 @@ class Order(CreationModificationDateBase, ModelWithMetadataBase, UUIDBase):
     place_id: Mapped[Optional[int]] = mapped_column(
         Integer, ForeignKey("place.id", name='fx_order_place_id', ondelete="SET NULL")
     )
-    place_full_name: Mapped[dict] = mapped_column(JSON, default={}, nullable=False)
+    place_full_name: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     user_email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, default="")
     origin: Mapped[OrderOriginChoices] = mapped_column(
@@ -69,106 +72,95 @@ class Order(CreationModificationDateBase, ModelWithMetadataBase, UUIDBase):
         nullable=False
     )
     currency: Mapped[str] = mapped_column(String(50), nullable=False)
-    shipping_method: Mapped[ShippingMethodChoices] = mapped_column(
-        ChoiceType(choices=ShippingMethodChoices, impl=String(20)),
-        nullable=False
-    )
-    shipping_price_net_amount: Mapped[Decimal] = mapped_column(
-        DECIMAL(precision=12, scale=2, asdecimal=True),
-        default=Decimal('0.0'),
-        nullable=False
-    )
-    shipping_price_gross_amount: Mapped[Decimal] = mapped_column(
-        DECIMAL(precision=12, scale=2, asdecimal=True),
-        default=Decimal('0.0'),
-        nullable=False
-    )
-    # Shipping price with applied shipping voucher discount, without tax
-    base_shipping_price_amount: Mapped[Decimal] = mapped_column(
-        DECIMAL(precision=12, scale=2, asdecimal=True),
-        default=Decimal('0.0'),
-        nullable=False
-    )
-    shipping_tax_rate: Mapped[Decimal] = mapped_column(
-        DECIMAL(precision=5, scale=4, asdecimal=True),
+    shipping_method_id: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        ForeignKey('shipping_method.id', name="fx_order_shipping_method_id", ondelete="SET NULL"),
         nullable=True
     )
-    total_net_amount: Mapped[Decimal] = mapped_column(
-        DECIMAL(precision=12, scale=2, asdecimal=True),
-        default=Decimal('0.0'),
-        nullable=False
+    shipping_method_name: Mapped[Optional[str]] = mapped_column(
+        String(255), nullable=True,
     )
-
-    total_gross_amount: Mapped[Decimal] = mapped_column(
+    shipping_price_amount: Mapped[Optional[Decimal]] = mapped_column(
         DECIMAL(precision=12, scale=2, asdecimal=True),
-        default=Decimal('0.0'),
+        nullable=True
+    )
+    base_shipping_price_amount: Mapped[Optional[Decimal]] = mapped_column(
+        DECIMAL(precision=12, scale=2, asdecimal=True),
+        nullable=True
+    )
+    un_discounted_base_shipping_price_amount: Mapped[Optional[Decimal]] = mapped_column(
+        DECIMAL(precision=12, scale=2, asdecimal=True),
+        nullable=True
+    )
+    total_amount: Mapped[Decimal] = mapped_column(
+        DECIMAL(precision=12, scale=2, asdecimal=True),
+        nullable=True
+    )
+    un_discounted_total_amount: Mapped[Decimal] = mapped_column(
+        DECIMAL(precision=12, scale=2, asdecimal=True),
         nullable=False
     )
     total_charged_amount: Mapped[Decimal] = mapped_column(
         DECIMAL(precision=12, scale=2, asdecimal=True),
-        default=Decimal('0.0'),
-        nullable=False
+        default=Decimal("0.0"),
+        nullable=True
     )
-    total_authorized_amount: Mapped[Decimal] = mapped_column(
+    subtotal_amount: Mapped[Decimal] = mapped_column(
         DECIMAL(precision=12, scale=2, asdecimal=True),
-        default=Decimal('0.0'),
         nullable=False
     )
-    subtotal_net_amount: Mapped[Decimal] = mapped_column(
+    extra_amount: Mapped[Optional[Decimal]] = mapped_column(
         DECIMAL(precision=12, scale=2, asdecimal=True),
-        default=Decimal('0.0'),
-        nullable=False
+        nullable=True
     )
-    subtotal_gross_amount: Mapped[Decimal] = mapped_column(
-        DECIMAL(precision=12, scale=2, asdecimal=True),
-        default=Decimal('0.0'),
-        nullable=False
-    )
-
     note: Mapped[str] = mapped_column(Text, nullable=False, default="")
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     user = relationship("User", lazy="noload", viewonly=True)
 
+    @hybrid_property
+    def base_shipping_price(self):
+        return Money(self.base_shipping_price_amount, self.currency)
+
 
 class OrderLine(ModelWithMetadataBase):
+    shipping_method_name: Mapped[Optional[str]] = mapped_column(
+        String(255), nullable=True,
+    )
+    shipping_method_id: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        ForeignKey('shipping_method.id', name="fx_order_ln_sh_method_id", ondelete="SET NULL"),
+        nullable=True
+    )
     order_id: Mapped[UUID] = mapped_column(
         SUUID(as_uuid=True),
         ForeignKey('order.id', ondelete='CASCADE', name='fx_order_line_order_id'),
         nullable=False,
     )
     currency: Mapped[str] = mapped_column(String(50), nullable=False)
-    extra_amount: Mapped[Decimal] = mapped_column(
-        DECIMAL(precision=12, scale=2, asdecimal=True),
-        default=Decimal('0.0'),
-        nullable=False
-    )
-    total_price_net_amount: Mapped[Decimal] = mapped_column(
+    total_price_amount: Mapped[Decimal] = mapped_column(
         DECIMAL(precision=12, scale=2, asdecimal=True),
         nullable=False
     )
-    total_price_gross_amount: Mapped[Decimal] = mapped_column(
+    un_discounted_total_price_amount: Mapped[Decimal] = mapped_column(
         DECIMAL(precision=12, scale=2, asdecimal=True),
         nullable=False
     )
-    tax_rate: Mapped[Decimal] = mapped_column(
-        DECIMAL(precision=5, scale=4, asdecimal=True),
-        nullable=False
-    )
-    shipping_price_net_amount: Mapped[Decimal] = mapped_column(
+    shipping_price_amount: Mapped[Optional[Decimal]] = mapped_column(
         DECIMAL(precision=12, scale=2, asdecimal=True),
-        default=Decimal('0.0'),
-        nullable=False
+        nullable=True
     )
-    shipping_price_gross_amount: Mapped[Decimal] = mapped_column(
+    un_discounted_shipping_price_amount: Mapped[Optional[Decimal]] = mapped_column(
         DECIMAL(precision=12, scale=2, asdecimal=True),
-        default=Decimal('0.0'),
-        nullable=False
+        nullable=True
     )
-    price: Mapped[Decimal] = mapped_column(
+    price_amount: Mapped[Optional[Decimal]] = mapped_column(
         DECIMAL(precision=12, scale=2, asdecimal=True),
-        default=Decimal('0.0'),
-        nullable=False
+        nullable=True
+    )
+    extra_amount: Mapped[Optional[Decimal]] = mapped_column(
+        DECIMAL(precision=12, scale=2, asdecimal=True),
+        nullable=True
     )
     note: Mapped[str] = mapped_column(Text, nullable=True)
 
