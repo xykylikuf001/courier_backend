@@ -8,7 +8,7 @@ from app.contrib.discount.models import OrderDiscount
 from ..discount.utils.manual_discount import apply_discount_to_value
 from ..discount.utils.voucher import is_order_level_voucher, is_shipping_voucher
 # from ..shipping.models import ShippingMethodChannelListing
-# from .interface import OrderTaxedPricesData
+from .interface import OrderPricesData
 
 if TYPE_CHECKING:
     from .models import Order, OrderLine
@@ -30,17 +30,15 @@ def base_order_subtotal(order: "Order", lines: Iterable["OrderLine"]) -> Money:
     currency = order.currency
     subtotal = zero_money(currency)
     for line in lines:
-        quantity = line.quantity
-        base_line_total = line.base_unit_price * quantity
+        base_line_total = line.total_price_amount
         subtotal += base_line_total
 
     return quantize_price(subtotal, currency)
 
 
 def base_order_total(
-    order: "Order",
-    lines: Iterable["OrderLine"],
-    database_connection_name: str = settings.DATABASE_CONNECTION_DEFAULT_NAME,
+        order: "Order",
+        lines: Iterable["OrderLine"],
 ) -> Money:
     """Return order total, recalculate, and update order discounts.
 
@@ -54,7 +52,7 @@ def base_order_total(
     return subtotal + shipping_price
 
 
-def base_order_line_total(order_line: "OrderLine") -> OrderTaxedPricesData:
+def base_order_line_total(order_line: "OrderLine") -> OrderPricesData:
     """Return order line base total.
 
     May include order line level discounts, like promotions, specific product vouchers
@@ -62,26 +60,18 @@ def base_order_line_total(order_line: "OrderLine") -> OrderTaxedPricesData:
     Does not include order level discounts, like entire order vouchers and manual
     order discounts.
     """
-    quantity = order_line.quantity
-    price_with_line_discounts = (
-        TaxedMoney(order_line.base_unit_price, order_line.base_unit_price) * quantity
-    )
-    un_discounted_price = (
-        TaxedMoney(
-            order_line.un_discounted_base_unit_price,
-            order_line.un_discounted_base_unit_price,
-        )
-        * quantity
-    )
-    return OrderTaxedPricesData(
-        undiscounted_price=undiscounted_price,
+    price_with_line_discounts = order_line.total_price
+    un_discounted_price = order_line.un_discounted_total_price
+    return OrderPricesData(
+        un_discounted_price=un_discounted_price,
         price_with_discounts=price_with_line_discounts,
     )
 
 
 def propagate_order_discount_on_order_prices(
-    order: "Order",
-    lines: Iterable["OrderLine"],
+        order: "Order",
+        lines: Iterable["OrderLine"],
+        order_discounts: Iterable["OrderDiscount"],
 ) -> tuple[Money, Money]:
     """Propagate the order discount on order.subtotal and order.shipping_price.
 
@@ -94,10 +84,10 @@ def propagate_order_discount_on_order_prices(
     currency = order.currency
     order_discounts_to_update = []
 
-    for order_discount in order.discounts.all():
+    for order_discount in order_discounts:
         subtotal_before_discount = subtotal
         shipping_price_before_discount = shipping_price
-        if order_discount.type == DiscountType.VOUCHER:
+        if order_discount.type == DiscountTypeChoices.voucher:
             voucher = order_discount.voucher
             if is_order_level_voucher(voucher):
                 subtotal = apply_discount_to_value(
@@ -144,8 +134,8 @@ def propagate_order_discount_on_order_prices(
                     )
                     total_discount = temporary_undiscounted_total - temporary_total
                     subtotal_discount = (
-                        subtotal / temporary_undiscounted_total
-                    ) * total_discount
+                                                subtotal / temporary_undiscounted_total
+                                        ) * total_discount
                     shipping_discount = total_discount - subtotal_discount
 
                     subtotal -= subtotal_discount
@@ -164,9 +154,9 @@ def propagate_order_discount_on_order_prices(
 
 
 def apply_order_discounts(
-    order: "Order",
-    lines: Iterable["OrderLine"],
-    assign_prices=True,
+        order: "Order",
+        lines: Iterable["OrderLine"],
+        assign_prices=True,
 ) -> tuple[Money, Money]:
     """Calculate prices after applying order level discounts.
 
@@ -194,7 +184,7 @@ def apply_order_discounts(
 
 
 def _get_total_price_with_subtotal_discount_for_order_line(
-    line: "OrderLine", discount: Money
+        line: "OrderLine", discount: Money
 ) -> Money:
     """Get subtotal discount for a given order line."""
 
@@ -206,9 +196,9 @@ def _get_total_price_with_subtotal_discount_for_order_line(
 
 
 def propagate_order_discount_on_order_lines_prices(
-    lines: Iterable["OrderLine"],
-    base_subtotal: Money,
-    subtotal_discount: Money,
+        lines: Iterable["OrderLine"],
+        base_subtotal: Money,
+        subtotal_discount: Money,
 ) -> Iterable[tuple["OrderLine", Money]]:
     """Return the line with new total price.
 
@@ -234,7 +224,7 @@ def propagate_order_discount_on_order_lines_prices(
                 yield line, zero_money(base_subtotal.currency)
             elif idx < lines_count - 1:
                 share = (
-                    line.base_unit_price_amount * line.quantity / base_subtotal.amount
+                        line.base_unit_price_amount * line.quantity / base_subtotal.amount
                 )
                 discount = quantize_price(
                     min(share * subtotal_discount, base_subtotal),
@@ -257,13 +247,13 @@ def propagate_order_discount_on_order_lines_prices(
 
 
 def get_total_price_with_subtotal_discount_for_order_line(
-    line: "OrderLine",
-    lines: Iterable["OrderLine"],
-    base_subtotal: Money,
-    subtotal_discount: Money,
+        line: "OrderLine",
+        lines: Iterable["OrderLine"],
+        base_subtotal: Money,
+        subtotal_discount: Money,
 ) -> Optional[Money]:
     for order_line, total_price in propagate_order_discount_on_order_lines_prices(
-        lines, base_subtotal, subtotal_discount
+            lines, base_subtotal, subtotal_discount
     ):
         if line.id == order_line.id:
             return total_price
@@ -271,14 +261,14 @@ def get_total_price_with_subtotal_discount_for_order_line(
 
 
 def apply_subtotal_discount_to_order_lines(
-    lines: Iterable["OrderLine"],
-    base_subtotal: Money,
-    subtotal_discount: Money,
+        lines: Iterable["OrderLine"],
+        base_subtotal: Money,
+        subtotal_discount: Money,
 ):
     """Calculate order lines prices after applying discounts to entire subtotal."""
     # Handle order with single line - propagate the whole discount to the single line.
     for line, total_price in propagate_order_discount_on_order_lines_prices(
-        lines, base_subtotal, subtotal_discount
+            lines, base_subtotal, subtotal_discount
     ):
         assign_order_line_prices(line, total_price)
 
@@ -300,10 +290,10 @@ def assign_order_line_prices(line: "OrderLine", total_price: Money):
 
 
 def assign_order_prices(
-    order: "Order",
-    lines: Iterable["OrderLine"],
-    subtotal: Money,
-    shipping_price: Money,
+        order: "Order",
+        lines: Iterable["OrderLine"],
+        subtotal: Money,
+        shipping_price: Money,
 ):
     shipping_price = quantize_price(shipping_price, order.currency)
     order.shipping_price_net_amount = shipping_price.amount
@@ -321,8 +311,8 @@ def assign_order_prices(
 
 
 def un_discounted_order_shipping(
-    order: "Order",
-    database_connection_name: str = settings.DATABASE_CONNECTION_DEFAULT_NAME,
+        order: "Order",
+        database_connection_name: str = settings.DATABASE_CONNECTION_DEFAULT_NAME,
 ) -> Money:
     """Return shipping price without any discounts."""
     # TODO: add un_discounted_shipping_price field to order model.
@@ -334,11 +324,11 @@ def un_discounted_order_shipping(
 
     if shipping_method:
         if (
-            listing := ShippingMethodChannelListing.objects.using(
-                database_connection_name
-            )
-            .filter(channel=order.channel, shipping_method=shipping_method)
-            .first()
+                listing := ShippingMethodChannelListing.objects.using(
+                    database_connection_name
+                )
+                        .filter(channel=order.channel, shipping_method=shipping_method)
+                        .first()
         ):
             return Money(listing.price_amount, order.currency)
     return zero_money(order.currency)
@@ -355,9 +345,9 @@ def un_discounted_order_subtotal(order: "Order", lines: Iterable["OrderLine"]) -
 
 
 def un_discounted_order_total(
-    order: "Order",
-    lines: Iterable["OrderLine"],
-    database_connection_name: str = settings.DATABASE_CONNECTION_DEFAULT_NAME,
+        order: "Order",
+        lines: Iterable["OrderLine"],
+        database_connection_name: str = settings.DATABASE_CONNECTION_DEFAULT_NAME,
 ) -> Money:
     """Return order total without any discounts."""
     subtotal = un_discounted_order_subtotal(order, lines)

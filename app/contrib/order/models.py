@@ -66,19 +66,15 @@ class Order(CreationModificationDateBase, ModelWithMetadataBase, UUIDBase):
     )
     place_full_name: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
-    user_email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, default="")
+    customer_email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, default="")
     origin: Mapped[OrderOriginChoices] = mapped_column(
         ChoiceType(choices=OrderOriginChoices, impl=String(32)),
         nullable=False
     )
     currency: Mapped[str] = mapped_column(String(50), nullable=False)
-    shipping_method_id: Mapped[Optional[int]] = mapped_column(
-        Integer,
-        ForeignKey('shipping_method.id', name="fx_order_shipping_method_id", ondelete="SET NULL"),
-        nullable=True
-    )
-    shipping_method_name: Mapped[Optional[str]] = mapped_column(
-        String(255), nullable=True,
+    shipping_method: Mapped[ShippingMethodChoices] = mapped_column(
+        ChoiceType(choices=ShippingMethodChoices, impl=String(50)),
+        nullable=False
     )
     shipping_price_amount: Mapped[Optional[Decimal]] = mapped_column(
         DECIMAL(precision=12, scale=2, asdecimal=True),
@@ -95,10 +91,6 @@ class Order(CreationModificationDateBase, ModelWithMetadataBase, UUIDBase):
     total_amount: Mapped[Decimal] = mapped_column(
         DECIMAL(precision=12, scale=2, asdecimal=True),
         nullable=True
-    )
-    un_discounted_total_amount: Mapped[Decimal] = mapped_column(
-        DECIMAL(precision=12, scale=2, asdecimal=True),
-        nullable=False
     )
     total_charged_amount: Mapped[Decimal] = mapped_column(
         DECIMAL(precision=12, scale=2, asdecimal=True),
@@ -117,6 +109,8 @@ class Order(CreationModificationDateBase, ModelWithMetadataBase, UUIDBase):
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     user = relationship("User", lazy="noload", viewonly=True)
+
+    voucher = relationship("Voucher", lazy="noload")
 
     @hybrid_property
     def base_shipping_price(self):
@@ -150,11 +144,7 @@ class OrderLine(ModelWithMetadataBase):
         DECIMAL(precision=12, scale=2, asdecimal=True),
         nullable=True
     )
-    un_discounted_shipping_price_amount: Mapped[Optional[Decimal]] = mapped_column(
-        DECIMAL(precision=12, scale=2, asdecimal=True),
-        nullable=True
-    )
-    price_amount: Mapped[Optional[Decimal]] = mapped_column(
+    freight_price_amount: Mapped[Optional[Decimal]] = mapped_column(
         DECIMAL(precision=12, scale=2, asdecimal=True),
         nullable=True
     )
@@ -163,6 +153,14 @@ class OrderLine(ModelWithMetadataBase):
         nullable=True
     )
     note: Mapped[str] = mapped_column(Text, nullable=True)
+
+    @hybrid_property
+    def total_price(self):
+        return Money(self.total_price_amount, self.currency)
+
+    @hybrid_property
+    def un_discounted_total_price(self):
+        return Money(self.un_discounted_total_price_amount, self.currency)
 
 
 class Fulfillment(CreationModificationDateBase, ModelWithMetadataBase):

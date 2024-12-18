@@ -1,14 +1,10 @@
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
 from app.db.repository import CRUDBase
 
 from .models import (
     Order, OrderLine,
 )
-from .schema import OrderLineCheckout
-if TYPE_CHECKING:
-    from sqlalchemy.ext.asyncio import AsyncSession
-
 
 class CRUDOrder(CRUDBase[Order]):
     pass
