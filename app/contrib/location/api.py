@@ -162,7 +162,6 @@ async def update_place(
             obj_repo_sync=place_repo_sync,
             db_obj=db_obj
         )
-    print(data)
     db_obj.parent_id = obj_in.parent_id
     result = place_repo_sync.update(
         db, db_obj=db_obj, obj_in=data

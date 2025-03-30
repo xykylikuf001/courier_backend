@@ -520,6 +520,7 @@ class CRUDBase(Generic[ModelType]):
             await async_db.refresh(db_obj)
         return db_obj
 
+
     async def update(
             self,
             async_db: "AsyncSession",

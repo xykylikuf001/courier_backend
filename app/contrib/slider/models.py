@@ -12,7 +12,7 @@ from app.conf import LanguagesChoices
 class Slider(CreationModificationDateBase):
     host: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     path: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=99)
 
     file_id: Mapped[int] = mapped_column(

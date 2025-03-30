@@ -532,7 +532,7 @@ async def send_email_verification_code(
         aioredis_instance=Depends(get_aioredis)
 ):
     if user.email is None:
-        raise HTTPException(statnus_code=400, detail=_("You do not have email yet."))
+        raise HTTPException(status_code=400, detail=_("You do not have email yet."))
     if user.email_verified_at:
         raise HTTPException(status_code=400, detail=_("You email already verified."))
 
@@ -588,10 +588,16 @@ async def get_user_list(
         commons: CommonsModel = Depends(get_commons),
         user_id: Optional[UUID] = None,
         search: Optional[str] = Query(None, max_length=255),
+        is_staff: Optional[bool] = Query(False),
         order_by: Optional[Literal["created_at", "-created_at"]] = "-created_at"
+
 ):
     options = None
     expressions = []
+    q = {
+        "is_staff": is_staff,
+        "is_superuser": False
+    }
     if user_id:
         expressions.append(User.id == user_id)
     if search:
@@ -605,7 +611,7 @@ async def get_user_list(
         async_db=async_db,
         limit=commons.limit,
         offset=commons.offset,
-        q={"is_superuser": False},
+        q=q,
         options=options,
         order_by=[order_by]
     )

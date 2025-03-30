@@ -16,4 +16,4 @@ Babel translations files
 
 Install linux packages:
 
-    apt install libwebp-dev libmagic1
+    apt install libwebp-dev libmagic1t64
